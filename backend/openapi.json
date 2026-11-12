@@ -61,6 +61,10 @@
           "verification_notice": {
             "title": "Verification Notice",
             "type": "string"
+          },
+          "whatsapp_available": {
+            "title": "Whatsapp Available",
+            "type": "boolean"
           }
         },
         "required": [
@@ -69,6 +73,7 @@
           "location",
           "description",
           "availability_status",
+          "whatsapp_available",
           "is_suspended",
           "identity_verified",
           "skills",
@@ -116,6 +121,18 @@
             "minLength": 2,
             "title": "Location",
             "type": "string"
+          },
+          "whatsapp_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional. If given, matched customers get a WhatsApp chat link to this number.",
+            "title": "Whatsapp Number"
           }
         },
         "required": [
@@ -167,6 +184,17 @@
               }
             ],
             "title": "Location"
+          },
+          "whatsapp_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whatsapp Number"
           }
         },
         "title": "ArtisanProfileUpdate",
@@ -294,6 +322,42 @@
         "title": "CheckStatus",
         "type": "string"
       },
+      "ContactOut": {
+        "description": "How the customer can talk to a matched artisan before booking (artisan opt-in).",
+        "properties": {
+          "channel": {
+            "const": "WHATSAPP",
+            "default": "WHATSAPP",
+            "title": "Channel",
+            "type": "string"
+          },
+          "icon": {
+            "default": "whatsapp",
+            "title": "Icon",
+            "type": "string"
+          },
+          "label": {
+            "default": "Chat on WhatsApp",
+            "title": "Label",
+            "type": "string"
+          },
+          "link": {
+            "description": "wa.me click-to-chat link with a prefilled message",
+            "title": "Link",
+            "type": "string"
+          },
+          "tip": {
+            "title": "Tip",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link",
+          "tip"
+        ],
+        "title": "ContactOut",
+        "type": "object"
+      },
       "DisputeIn": {
         "properties": {
           "reason": {
@@ -390,16 +454,24 @@
       },
       "JobCreateIn": {
         "properties": {
-          "agreed_price": {
-            "maximum": 100000000.0,
-            "minimum": 0.0,
-            "title": "Agreed Price",
-            "type": "integer"
-          },
           "artisan_id": {
             "format": "uuid",
             "title": "Artisan Id",
             "type": "string"
+          },
+          "proposed_price": {
+            "anyOf": [
+              {
+                "maximum": 100000000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Amount you offer in FCFA. Required for normal requests; must be omitted when the request needs inspection.",
+            "title": "Proposed Price"
           },
           "request_id": {
             "format": "uuid",
@@ -409,8 +481,7 @@
         },
         "required": [
           "request_id",
-          "artisan_id",
-          "agreed_price"
+          "artisan_id"
         ],
         "title": "JobCreateIn",
         "type": "object"
@@ -462,8 +533,19 @@
       "JobOut": {
         "properties": {
           "agreed_price": {
-            "title": "Agreed Price",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreed Price"
+          },
+          "artisan_agreed": {
+            "title": "Artisan Agreed",
+            "type": "boolean"
           },
           "artisan_confirmed": {
             "title": "Artisan Confirmed",
@@ -498,6 +580,17 @@
             "description": "Shown to the two parties once the job is accepted",
             "title": "Counterpart Phone"
           },
+          "counterpart_whatsapp_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterpart Whatsapp Link"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -512,6 +605,11 @@
             "title": "Customer Id",
             "type": "string"
           },
+          "escrow_status": {
+            "description": "NOT_PAID, AWAITING_PAYMENT, HELD, RELEASED or REFUNDED",
+            "title": "Escrow Status",
+            "type": "string"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/JobEventOut"
@@ -523,6 +621,51 @@
             "format": "uuid",
             "title": "Job Id",
             "type": "string"
+          },
+          "payment_due": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The payment YOU still have to approve, if any"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentOut"
+            },
+            "title": "Payments",
+            "type": "array"
+          },
+          "pricing_mode": {
+            "description": "FIXED_PRICE or INSPECTION_REQUIRED",
+            "title": "Pricing Mode",
+            "type": "string"
+          },
+          "proposed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed By"
+          },
+          "proposed_price": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Price"
           },
           "request_id": {
             "format": "uuid",
@@ -539,13 +682,21 @@
           "request_id",
           "artisan_id",
           "customer_id",
+          "pricing_mode",
+          "proposed_price",
+          "proposed_by",
           "agreed_price",
+          "artisan_agreed",
+          "escrow_status",
+          "payment_due",
+          "payments",
           "status",
           "customer_confirmed",
           "artisan_confirmed",
           "created_at",
           "completed_at",
           "counterpart_phone",
+          "counterpart_whatsapp_link",
           "events"
         ],
         "title": "JobOut",
@@ -584,6 +735,17 @@
           },
           "breakdown": {
             "$ref": "#/components/schemas/ScoreBreakdown"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContactOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the artisan has not opted in to WhatsApp"
           },
           "full_name": {
             "title": "Full Name",
@@ -631,7 +793,8 @@
           "verified_reviews",
           "reputation_score",
           "match_score",
-          "breakdown"
+          "breakdown",
+          "contact"
         ],
         "title": "MatchOut",
         "type": "object"
@@ -683,6 +846,169 @@
           "disclaimer"
         ],
         "title": "MatchesOut",
+        "type": "object"
+      },
+      "PaymentOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "notice": {
+            "title": "Notice",
+            "type": "string"
+          },
+          "payment_id": {
+            "format": "uuid",
+            "title": "Payment Id",
+            "type": "string"
+          },
+          "payment_type": {
+            "title": "Payment Type",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "settled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settled At"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payment_id",
+          "job_id",
+          "payment_type",
+          "amount",
+          "currency",
+          "status",
+          "provider",
+          "description",
+          "created_at",
+          "settled_at",
+          "simulated",
+          "notice"
+        ],
+        "title": "PaymentOut",
+        "type": "object"
+      },
+      "PricingPolicyOut": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "customer_pays": {
+            "title": "Customer Pays",
+            "type": "string"
+          },
+          "fees_paid_by": {
+            "title": "Fees Paid By",
+            "type": "string"
+          },
+          "fixed_price_commission_minimum": {
+            "title": "Fixed Price Commission Minimum",
+            "type": "integer"
+          },
+          "fixed_price_commission_percent": {
+            "title": "Fixed Price Commission Percent",
+            "type": "number"
+          },
+          "inspection_assignment_fee": {
+            "title": "Inspection Assignment Fee",
+            "type": "integer"
+          },
+          "notice": {
+            "title": "Notice",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "fixed_price_commission_percent",
+          "fixed_price_commission_minimum",
+          "inspection_assignment_fee",
+          "fees_paid_by",
+          "customer_pays",
+          "provider",
+          "notice"
+        ],
+        "title": "PricingPolicyOut",
+        "type": "object"
+      },
+      "QuoteIn": {
+        "properties": {
+          "amount": {
+            "description": "Price in FCFA after inspecting the problem",
+            "maximum": 100000000.0,
+            "minimum": 1.0,
+            "title": "Amount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "QuoteIn",
+        "type": "object"
+      },
+      "QuoteResponseIn": {
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "approve"
+        ],
+        "title": "QuoteResponseIn",
         "type": "object"
       },
       "RegisterIn": {
@@ -922,6 +1248,12 @@
             "title": "Location",
             "type": "string"
           },
+          "needs_inspection": {
+            "default": false,
+            "description": "True if the artisan must examine the problem before a price can be given",
+            "title": "Needs Inspection",
+            "type": "boolean"
+          },
           "skill_id": {
             "format": "uuid",
             "title": "Skill Id",
@@ -967,6 +1299,10 @@
             "title": "Location",
             "type": "string"
           },
+          "needs_inspection": {
+            "title": "Needs Inspection",
+            "type": "boolean"
+          },
           "request_id": {
             "format": "uuid",
             "title": "Request Id",
@@ -989,6 +1325,7 @@
           "description",
           "location",
           "budget",
+          "needs_inspection",
           "status",
           "created_at"
         ],
@@ -2301,6 +2638,226 @@
         ]
       }
     },
+    "/jobs/{job_id}/pay": {
+      "post": {
+        "description": "Customer starts the escrow payment of the agreed price. Approve it with the payment endpoints.",
+        "operationId": "pay_jobs__job_id__pay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Pay",
+        "tags": [
+          "jobs",
+          "payments"
+        ]
+      }
+    },
+    "/jobs/{job_id}/payments": {
+      "get": {
+        "operationId": "list_payments_jobs__job_id__payments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentOut"
+                  },
+                  "title": "Response List Payments Jobs  Job Id  Payments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Payments",
+        "tags": [
+          "jobs",
+          "payments"
+        ]
+      }
+    },
+    "/jobs/{job_id}/quote": {
+      "post": {
+        "description": "Inspection jobs: the assigned artisan proposes a price after examining the problem.",
+        "operationId": "quote_jobs__job_id__quote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Quote",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/quote/respond": {
+      "post": {
+        "operationId": "respond_quote_jobs__job_id__quote_respond_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteResponseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Respond Quote",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
     "/jobs/{job_id}/reviews": {
       "post": {
         "operationId": "review_jobs__job_id__reviews_post",
@@ -2465,6 +3022,172 @@
         "summary": "Get Matches",
         "tags": [
           "matching"
+        ]
+      }
+    },
+    "/payments/{payment_id}": {
+      "get": {
+        "operationId": "get_payment_payments__payment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Payment",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/payments/{payment_id}/simulate-approval": {
+      "post": {
+        "operationId": "simulate_approval_payments__payment_id__simulate_approval_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Simulate Approval",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/payments/{payment_id}/simulate-failure": {
+      "post": {
+        "operationId": "simulate_failure_payments__payment_id__simulate_failure_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Simulate Failure",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/pricing": {
+      "get": {
+        "description": "Public fee policy, so artisans know the cost before they accept anything.",
+        "operationId": "pricing_pricing_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pricing",
+        "tags": [
+          "payments"
         ]
       }
     },

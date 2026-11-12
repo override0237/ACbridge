@@ -5,6 +5,10 @@ carpenters, mechanics, tailors, masons, hairdressers...) in Cameroon. Artisans p
 through **other people** (community endorsements + an authorised verifier + confirmed completed jobs),
 and customers can trust what they see because **reviews only exist for jobs both sides confirmed**.
 
+> ⚠️ **Payments are SIMULATED too.** The payment flow (commission, assignment fee, escrow, payouts) is fully
+> implemented behind a provider interface, but the only provider is a simulator: **no real money moves**.
+> Going live needs MTN MoMo / Orange Money merchant accounts and a provider class (see §6b).
+>
 > ⚠️ **Verification is SIMULATED in this prototype.** No real-world identity check or practical skill
 > assessment takes place. Every verification API response says so (`simulated: true` + a notice) and the
 > seed data is labelled fake. Do not present it as real verification.
@@ -30,7 +34,7 @@ ACbridge/
     │   ├── services/          # business rules: verification, matching, reputation, job (state machine)
     │   └── security/          # authentication (Argon2id, JWT), permissions (RBAC), rate_limit
     ├── scripts/demo.py        # runs the whole John & Mary journey against a live API
-    ├── tests/                 # pytest suite (59 tests)
+    ├── tests/                 # pytest suite (84 tests)
     ├── requirements.txt  .env.example  docker-compose.yml  pytest.ini
 ```
 
@@ -73,9 +77,10 @@ ACbridge/
    (e.g. `npx openapi-typescript backend/openapi.json -o frontend/src/api-types.ts`).
    A test fails when the API changes without regenerating it:
    `cd backend && python -m scripts.export_openapi`.
-5. **Errors.** Failures return `{"detail": "..."}`; validation errors (`422`) return `detail` as a list.
+5. **Payment flow & breaking change.** `POST /jobs` now takes `proposed_price` (was `agreed_price`); accepting a job returns a `payment_due` the artisan must approve before the job becomes `ACCEPTED`; the customer pays via `POST /jobs/{id}/pay`; match results include `contact` (WhatsApp). See §6b and `openapi.json`.
+6. **Errors.** Failures return `{"detail": "..."}`; validation errors (`422`) return `detail` as a list.
    Show the string to the user. IDs are UUID strings; money is integer FCFA; dates are ISO-8601 UTC.
-6. **Run both:** terminal 1 `cd backend && uvicorn app.main:app --reload`; terminal 2 `cd frontend && npm run dev`.
+7. **Run both:** terminal 1 `cd backend && uvicorn app.main:app --reload`; terminal 2 `cd frontend && npm run dev`.
 
 > If your frontend already calls endpoints with different names or fields than this API, share its
 > folder (or the list of calls it makes) and the two sides can be aligned deliberately.
@@ -160,7 +165,7 @@ pytest                                   # in-memory SQLite, no setup, ~35 s
 TEST_DATABASE_URL=postgresql+psycopg://acbridge:acbridge@localhost:5432/acbridge_test pytest   # real PostgreSQL
 ```
 
-Both modes pass (**59 on PostgreSQL; SQLite runs 58 and skips the concurrency test**, because
+Both modes pass (**84 on PostgreSQL; SQLite runs 83 and skips the concurrency test**, because
 row locks need PostgreSQL). The tests cover every rule in the brief: auth, self-endorsement,
 unauthorised verification, the approval workflow, eligibility/ranking maths, job state machine,
 duplicate/unrelated confirmations, review rules, Bayesian reputation, DB-level constraints
@@ -210,7 +215,8 @@ Audit trail: `JOB_REQUESTED → JOB_ACCEPTED → JOB_STARTED → COMPLETION_CONF
 | Artisans | `POST /artisans`, `GET/PATCH /artisans/{id}`, `POST /artisans/{id}/skills`, `POST /artisans/{id}/endorsements`, `GET /artisans/{id}/reputation` |
 | Verification | `POST/GET /verifications`, `GET /verifications/{id}`, `POST /verifications/{id}/decision`, `POST/GET /verifications/{id}/evidence` |
 | Requests / matching | `POST /service-requests`, `GET /service-requests/{id}`, `GET /matches/{request_id}` |
-| Jobs | `POST /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/accept`, `/start`, `/confirm-completion`, `/cancel`, `/dispute` |
+| Jobs | `POST /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/accept`, `/pay`, `/quote`, `/quote/respond`, `/start`, `/confirm-completion`, `/cancel`, `/dispute` |
+| Payments | `GET /pricing`, `GET /jobs/{id}/payments`, `GET /payments/{id}`, `POST /payments/{id}/simulate-approval`, `/simulate-failure` (simulated mode only) |
 | Reviews | `POST /jobs/{id}/reviews`, `GET /reviews/mine` |
 | Admin | `POST /admin/users/{id}/role`, `/admin/artisans/{id}/suspend`, `/unsuspend`, `/admin/jobs/{id}/resolve-dispute` |
 
@@ -231,6 +237,46 @@ There is **no endpoint that sets a job status directly**; each action is one val
 * **Job state machine** (`job_service.ALLOWED_TRANSITIONS`): `REQUESTED → ACCEPTED → IN_PROGRESS → PENDING_CONFIRMATION → COMPLETED`, with `DISPUTED`/`CANCELLED`. Every transition locks the job row (`SELECT … FOR UPDATE`), writes a `job_events` row and commits in **one transaction**. Repeated confirmations are idempotent (safe on flaky mobile networks). A concurrency test fires six simultaneous confirmations at PostgreSQL and checks one `JOB_COMPLETED`.
 * **Anti-fraud:** unique phones; duplicate skills/endorsements/reviews blocked by DB constraints (race-safe); reviews only from the customer of a COMPLETED job; completion needs both parties; append-only audit trail; verifiers see *hints* (`review_signals`, e.g. endorsers who registered the same day) for **human** judgement — nothing is auto-flagged as fraud; rate limits on register/login/upload; uploads checked by extension *and* file header, size-capped, stored under server-generated names, served only to the owner/verifiers/admins.
 * **Privacy:** password hashes (Argon2id), evidence text/files and phone numbers never appear on public profiles. Phone numbers are exchanged only between the two parties of an accepted job.
+
+## 6b. WhatsApp contact and platform payments
+
+### WhatsApp at the matching stage
+Every match in `GET /matches/{request_id}` carries a `contact` object:
+`{"channel": "WHATSAPP", "icon": "whatsapp", "label": "Chat on WhatsApp", "link": "https://wa.me/237…?text=…", "tip": "…"}`.
+The frontend shows the WhatsApp icon and opens `link` (WhatsApp opens on the customer's phone with a prefilled
+message naming the trade, area, budget and request reference, so the artisan knows what it is about).
+No WhatsApp Business API is needed.
+
+* **Opt-in:** an artisan only gets a `contact` if they set `whatsapp_number` (on `POST /artisans` or `PATCH /artisans/{id}`). Otherwise `contact` is `null` and the UI hides the icon.
+* **Privacy:** the number appears only in the match results of the customer who made the request (never on public profiles; the public profile shows just `whatsapp_available`). The customer's number is not revealed to the artisan until they choose to start the chat. After a job is accepted, both parties get `counterpart_whatsapp_link` on the job.
+* The `tip` reminds people to book and pay inside ACbridge: only paid, confirmed jobs earn reviews and escrow protection.
+
+### Payments through the platform
+Fees are paid by the **artisan** and are charged when the artisan agrees to the price, as you specified.
+`GET /pricing` publishes the policy so artisans see it first. Defaults (env-configurable): **5%** commission,
+minimum **300 FCFA**, flat inspection fee **1000 FCFA**.
+
+| | Normal request (price known) | Request flagged `needs_inspection` |
+|---|---|---|
+| Customer | `POST /jobs` with `proposed_price` | `POST /jobs` **without** a price |
+| Artisan agrees | `POST /jobs/{id}/accept` → pays **COMMISSION** (% of the price) | `POST /jobs/{id}/accept` → pays flat **ASSIGNMENT_FEE** |
+| Job becomes `ACCEPTED` | only after the fee is paid | only after the fee is paid |
+| Price | the proposed amount | artisan `POST /jobs/{id}/quote`, customer `POST /jobs/{id}/quote/respond` (approve/reject; artisan can re-quote) |
+
+Then, for both: the customer pays the agreed price into **escrow** (`POST /jobs/{id}/pay`); work cannot start until
+it is held; when **both** sides confirm completion the escrow is **released** to the artisan (full amount, because the
+commission was already paid) and `PAYOUT_RELEASED` is audited. If the job is cancelled, or an admin cancels a dispute,
+the escrow is **refunded** and any unapproved charge is voided.
+
+Safeguards: integer FCFA only (no float money errors); a partial unique index allows only **one non-failed payment
+per type per job** (no double charges, even under races); `accept`/`pay` are idempotent; settling a payment twice is
+harmless; the database refuses a started/completed job with no agreed price; every payment step is a row in `payments`
+and an append-only `job_events` entry. Platform fees already paid are **not** refunded automatically (policy: an admin
+handles exceptions).
+
+**Simulated mode:** the payer "approves the mobile-money prompt" with `POST /payments/{id}/simulate-approval`
+(or `/simulate-failure`). In production these routes disappear and a signed provider webhook calls
+`job_service.settle_payment`; the app **refuses to start in production with the simulated provider**.
 
 ## 7. Engineering theory — what is implemented vs. only theoretical
 
@@ -256,4 +302,7 @@ There is **no endpoint that sets a job status directly**; each action is one val
 * JWTs are not revocable before expiry (60 min); no refresh tokens, password reset or SMS/OTP phone verification yet.
 * Evidence files live on local disk; use object storage with malware scanning in production.
 * No Alembic migrations yet; money is integer FCFA; currency/payments/commission (the revenue model — e.g. a small customer-paid booking fee) are not built.
+* Payments are simulated; real MTN MoMo / Orange Money integration, signed webhooks, payout failures and reconciliation are future work. Charging the artisan at agreement (instead of after the job) means artisans pay before they earn; consider refunding the fee when a job is cancelled by the customer.
+* Price negotiation is one-directional for normal jobs (the customer proposes, the artisan accepts or declines); counter-offers are not built.
+* WhatsApp links open a chat only; messages are not stored by ACbridge, so chat content cannot be used as evidence in disputes.
 * Not yet done for the stated users: USSD/WhatsApp/voice interfaces, local-language strings, completion codes by SMS, offline-tolerant client.

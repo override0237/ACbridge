@@ -10,6 +10,7 @@ Cardinality summary
   users 1 ──── N service_requests ; skills 1 ──── N service_requests
   service_requests 1 ──── 0..1 jobs       (UNIQUE request_id: one artisan per request in the MVP)
   artisan_profiles 1 ──── N jobs ; jobs 1 ──── N job_events (append-only) ; jobs 1 ──── N reviews
+  jobs 1 ──── N payments (commission / assignment fee / escrow; at most one non-failed per type)
   reviews: UNIQUE(job_id, reviewer_id)
 """
 import enum
@@ -18,7 +19,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON, DDL, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer,
-    MetaData, SmallInteger, String, Text, UniqueConstraint, event, func,
+    MetaData, SmallInteger, String, Text, UniqueConstraint, event, func, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -86,6 +87,25 @@ class JobStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
+class PricingMode(str, enum.Enum):
+    FIXED_PRICE = "FIXED_PRICE"                # customer proposes an amount; artisan pays a % commission once they agree
+    INSPECTION_REQUIRED = "INSPECTION_REQUIRED"  # price unknown until inspected; artisan pays a flat assignment fee
+
+
+class PaymentType(str, enum.Enum):
+    COMMISSION = "COMMISSION"          # artisan -> platform, % of the agreed price (fixed-price jobs)
+    ASSIGNMENT_FEE = "ASSIGNMENT_FEE"  # artisan -> platform, flat fee (inspection jobs)
+    JOB_PAYMENT = "JOB_PAYMENT"        # customer -> platform escrow, released to the artisan on completion
+
+
+class PaymentStatus(str, enum.Enum):
+    PENDING = "PENDING"      # waiting for the mobile-money approval
+    SUCCEEDED = "SUCCEEDED"  # money received (for JOB_PAYMENT: held in escrow)
+    FAILED = "FAILED"
+    RELEASED = "RELEASED"    # escrow paid out to the artisan
+    REFUNDED = "REFUNDED"    # escrow returned to the customer
+
+
 def _in(column: str, enum_cls: type[enum.Enum]) -> str:
     return f"{column} IN ({', '.join(repr(m.value) for m in enum_cls)})"
 
@@ -139,6 +159,8 @@ class ArtisanProfile(Base):
     full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     location: Mapped[str] = mapped_column(String(160), nullable=False)  # "Neighbourhood, Town"
     description: Mapped[str | None] = mapped_column(Text)
+    # Opt-in: the artisan chooses to publish a WhatsApp number to matched customers (NULL = no WhatsApp contact).
+    whatsapp_number: Mapped[str | None] = mapped_column(String(20))
     availability_status: Mapped[str] = mapped_column(
         String(16), nullable=False, default=AvailabilityStatus.AVAILABLE.value,
         server_default=AvailabilityStatus.AVAILABLE.value,
@@ -259,6 +281,8 @@ class ServiceRequest(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     location: Mapped[str] = mapped_column(String(160), nullable=False)
     budget: Mapped[int | None] = mapped_column(Integer)  # FCFA has no minor unit, so integers are exact
+    # True when the problem must be examined before a price can be given (-> INSPECTION_REQUIRED job).
+    needs_inspection: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, default=RequestStatus.OPEN.value, server_default=RequestStatus.OPEN.value
     )
@@ -274,7 +298,14 @@ class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
         CheckConstraint(_in("status", JobStatus), name="status_valid"),
-        CheckConstraint("agreed_price >= 0", name="price_non_negative"),
+        CheckConstraint(_in("pricing_mode", PricingMode), name="pricing_mode_valid"),
+        CheckConstraint("agreed_price IS NULL OR agreed_price >= 0", name="price_non_negative"),
+        CheckConstraint("proposed_price IS NULL OR proposed_price >= 0", name="proposed_price_non_negative"),
+        # Work cannot start (or finish) without an agreed price - guaranteed by the database itself.
+        CheckConstraint(
+            "status NOT IN ('IN_PROGRESS', 'PENDING_CONFIRMATION', 'COMPLETED') OR agreed_price IS NOT NULL",
+            name="started_needs_agreed_price",
+        ),
         # A job can only be COMPLETED if BOTH parties confirmed - enforced by the database itself.
         CheckConstraint(
             "status <> 'COMPLETED' OR (customer_confirmed = true AND artisan_confirmed = true "
@@ -288,7 +319,13 @@ class Job(Base):
     job_id: Mapped[uuid.UUID] = _uuid_pk()
     request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service_requests.request_id"), unique=True, nullable=False)
     artisan_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("artisan_profiles.artisan_id"), nullable=False)
-    agreed_price: Mapped[int] = mapped_column(Integer, nullable=False)
+    pricing_mode: Mapped[str] = mapped_column(
+        String(24), nullable=False, default=PricingMode.FIXED_PRICE.value, server_default=PricingMode.FIXED_PRICE.value
+    )
+    proposed_price: Mapped[int | None] = mapped_column(Integer)   # latest offer on the table (FCFA)
+    proposed_by: Mapped[str | None] = mapped_column(String(8))    # 'CUSTOMER' or 'ARTISAN'
+    agreed_price: Mapped[int | None] = mapped_column(Integer)     # NULL until both sides accept an amount
+    artisan_agreed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     status: Mapped[str] = mapped_column(
         String(24), nullable=False, default=JobStatus.REQUESTED.value, server_default=JobStatus.REQUESTED.value
     )
@@ -301,6 +338,50 @@ class Job(Base):
     artisan: Mapped[ArtisanProfile] = relationship(back_populates="jobs")
     events: Mapped[list["JobEvent"]] = relationship(back_populates="job", order_by="JobEvent.created_at")
     reviews: Mapped[list["Review"]] = relationship(back_populates="job")
+    payments: Mapped[list["Payment"]] = relationship(back_populates="job", order_by="Payment.created_at")
+
+
+# --------------------------------------------------------------------------- K. payments (platform money flow)
+class Payment(Base):
+    """Every money movement goes through the platform and is recorded here.
+
+    COMMISSION / ASSIGNMENT_FEE : artisan pays the platform.
+    JOB_PAYMENT                 : customer pays into escrow; RELEASED to the artisan on completion or
+                                  REFUNDED if the job is cancelled.
+    NOTE: the payment provider is SIMULATED in this MVP - no real money moves.
+    """
+
+    __tablename__ = "payments"
+    __table_args__ = (
+        CheckConstraint(_in("payment_type", PaymentType), name="type_valid"),
+        CheckConstraint(_in("status", PaymentStatus), name="status_valid"),
+        CheckConstraint("amount > 0", name="amount_positive"),
+        # At most one non-failed payment of each type per job: no double commission, no double escrow.
+        Index(
+            "uq_payments_one_active_per_type", "job_id", "payment_type", unique=True,
+            postgresql_where=text("status <> 'FAILED'"), sqlite_where=text("status <> 'FAILED'"),
+        ),
+        Index("ix_payments_status", "status"),
+        Index("ix_payments_payer_id", "payer_id"),
+    )
+
+    payment_id: Mapped[uuid.UUID] = _uuid_pk()
+    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.job_id"), nullable=False)
+    payer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    payment_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)  # FCFA (XAF)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="XAF", server_default="XAF")
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default=PaymentStatus.PENDING.value, server_default=PaymentStatus.PENDING.value
+    )
+    provider: Mapped[str] = mapped_column(String(24), nullable=False)
+    provider_reference: Mapped[str | None] = mapped_column(String(64))
+    description: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = _created_at()
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    job: Mapped[Job] = relationship(back_populates="payments")
+    payer: Mapped[User] = relationship()
 
 
 # --------------------------------------------------------------------------- I. job_events (append-only)

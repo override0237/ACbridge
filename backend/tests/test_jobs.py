@@ -23,8 +23,12 @@ def test_valid_job_creation_and_acceptance(world):
     assert job["status"] == "REQUESTED" and job["counterpart_phone"] is None   # no contact details before acceptance
 
     res = _post(world, john, f"/jobs/{job_id}/accept")
-    assert res.status_code == 200 and res.json()["status"] == "ACCEPTED"
-    assert res.json()["counterpart_phone"] == customer.phone
+    # Agreeing is not enough: the job is only ACCEPTED after the artisan pays the platform fee.
+    assert res.status_code == 200 and res.json()["status"] == "REQUESTED"
+    assert res.json()["payment_due"]["payment_type"] == "COMMISSION"
+    accepted = world.accept(job_id, john)
+    assert accepted["status"] == "ACCEPTED"
+    assert accepted["counterpart_phone"] == customer.phone
     assert world.client.get(f"/service-requests/{request_id}", headers=customer.headers).json()["status"] == "MATCHED"
 
 
@@ -35,7 +39,7 @@ def test_customer_cannot_accept_and_artisan_cannot_create_job(world):
     job_id = world.job(customer, john, request_id)
     assert _post(world, customer, f"/jobs/{job_id}/accept").status_code == 403
     assert _post(world, john, "/jobs", json={"request_id": request_id, "artisan_id": john.artisan_id,
-                                             "agreed_price": 1}).status_code == 403
+                                             "proposed_price": 1}).status_code == 403
 
 
 def test_other_artisan_cannot_accept_someone_elses_job(world):
@@ -51,7 +55,7 @@ def test_customer_cannot_hire_an_ineligible_artisan(world):
     unverified = world.artisan(skill_id, verified=False)
     request_id = world.request(customer, skill_id)
     res = _post(world, customer, "/jobs", json={"request_id": request_id, "artisan_id": unverified.artisan_id,
-                                                "agreed_price": 5000})
+                                                "proposed_price": 5000})
     assert res.status_code == 400 and "SKILL_NOT_VERIFIED" in res.json()["detail"]
 
 
@@ -60,7 +64,7 @@ def test_one_job_per_request(world):
     customer, a, b = world.user("CUSTOMER"), world.artisan(skill_id), world.artisan(skill_id)
     request_id = world.request(customer, skill_id)
     world.job(customer, a, request_id)
-    res = _post(world, customer, "/jobs", json={"request_id": request_id, "artisan_id": b.artisan_id, "agreed_price": 1})
+    res = _post(world, customer, "/jobs", json={"request_id": request_id, "artisan_id": b.artisan_id, "proposed_price": 1})
     assert res.status_code == 409
 
 
@@ -77,7 +81,7 @@ def test_invalid_transitions_rejected(world, action):
 
 def test_cannot_accept_twice_or_restart(world):
     customer, john, job_id = world.job_in_progress()
-    assert _post(world, john, f"/jobs/{job_id}/accept").status_code == 409
+    assert _post(world, john, f"/jobs/{job_id}/accept").status_code == 409     # already in progress
     assert _post(world, john, f"/jobs/{job_id}/start").status_code == 409
 
 
@@ -116,7 +120,7 @@ def test_both_confirmations_complete_the_job_and_are_audited(world):
     body = res.json()
     assert body["status"] == "COMPLETED" and body["completed_at"] is not None
     types = [e["event_type"] for e in body["events"]]
-    assert types[0] == "JOB_REQUESTED" and types[-1] == "JOB_COMPLETED"
+    assert types[0] == "JOB_REQUESTED" and types[-2:] == ["JOB_COMPLETED", "PAYOUT_RELEASED"]
     assert types.count("COMPLETION_CONFIRMED") == 2
     assert all(e["actor_id"] for e in body["events"])
     request_id = body["request_id"]

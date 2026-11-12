@@ -106,12 +106,26 @@ class ArtisanProfileIn(BaseModel):
     location: str = Field(min_length=2, max_length=160, description="'Neighbourhood, Town' e.g. 'Small Soppo, Buea'")
     description: str | None = Field(default=None, max_length=1000)
     availability_status: AvailabilityLiteral = "AVAILABLE"
+    whatsapp_number: str | None = Field(
+        default=None, description="Optional. If given, matched customers get a WhatsApp chat link to this number."
+    )
+
+    @field_validator("whatsapp_number")
+    @classmethod
+    def _clean_whatsapp(cls, value: str | None) -> str | None:
+        return normalize_phone(value) if value else None
 
 
 class ArtisanProfileUpdate(BaseModel):
     location: str | None = Field(default=None, min_length=2, max_length=160)
     description: str | None = Field(default=None, max_length=1000)
     availability_status: AvailabilityLiteral | None = None
+    whatsapp_number: str | None = None
+
+    @field_validator("whatsapp_number")
+    @classmethod
+    def _clean_whatsapp(cls, value: str | None) -> str | None:
+        return normalize_phone(value) if value else None
 
 
 class ArtisanSkillIn(BaseModel):
@@ -136,6 +150,7 @@ class ArtisanOut(BaseModel):
     location: str
     description: str | None
     availability_status: str
+    whatsapp_available: bool
     is_suspended: bool
     identity_verified: bool
     skills: list[ArtisanSkillOut]
@@ -193,6 +208,9 @@ class ServiceRequestIn(BaseModel):
     description: str = Field(min_length=5, max_length=2000)
     location: str = Field(min_length=2, max_length=160, description="'Neighbourhood, Town'")
     budget: int | None = Field(default=None, ge=0, le=100_000_000, description="Budget in FCFA")
+    needs_inspection: bool = Field(
+        default=False, description="True if the artisan must examine the problem before a price can be given"
+    )
 
 
 class ServiceRequestOut(ORM):
@@ -202,6 +220,7 @@ class ServiceRequestOut(ORM):
     description: str
     location: str
     budget: int | None
+    needs_inspection: bool
     status: str
     created_at: datetime
 
@@ -215,6 +234,16 @@ class ScoreBreakdown(BaseModel):
     price: float
 
 
+class ContactOut(BaseModel):
+    """How the customer can talk to a matched artisan before booking (artisan opt-in)."""
+
+    channel: Literal["WHATSAPP"] = "WHATSAPP"
+    icon: str = "whatsapp"
+    label: str = "Chat on WhatsApp"
+    link: str = Field(description="wa.me click-to-chat link with a prefilled message")
+    tip: str
+
+
 class MatchOut(BaseModel):
     artisan_id: uuid.UUID
     full_name: str
@@ -226,6 +255,7 @@ class MatchOut(BaseModel):
     reputation_score: float
     match_score: float
     breakdown: ScoreBreakdown
+    contact: ContactOut | None = Field(description="null when the artisan has not opted in to WhatsApp")
 
 
 class MatchesOut(BaseModel):
@@ -241,7 +271,19 @@ class MatchesOut(BaseModel):
 class JobCreateIn(BaseModel):
     request_id: uuid.UUID
     artisan_id: uuid.UUID
-    agreed_price: int = Field(ge=0, le=100_000_000)
+    proposed_price: int | None = Field(
+        default=None, ge=1, le=100_000_000,
+        description="Amount you offer in FCFA. Required for normal requests; must be omitted when the "
+                    "request needs inspection.",
+    )
+
+
+class QuoteIn(BaseModel):
+    amount: int = Field(ge=1, le=100_000_000, description="Price in FCFA after inspecting the problem")
+
+
+class QuoteResponseIn(BaseModel):
+    approve: bool
 
 
 class DisputeIn(BaseModel):
@@ -265,18 +307,52 @@ class JobEventOut(ORM):
     created_at: datetime
 
 
+class PaymentOut(BaseModel):
+    payment_id: uuid.UUID
+    job_id: uuid.UUID
+    payment_type: str
+    amount: int
+    currency: str
+    status: str
+    provider: str
+    description: str | None
+    created_at: datetime
+    settled_at: datetime | None
+    simulated: bool
+    notice: str
+
+
+class PricingPolicyOut(BaseModel):
+    currency: str
+    fixed_price_commission_percent: float
+    fixed_price_commission_minimum: int
+    inspection_assignment_fee: int
+    fees_paid_by: str
+    customer_pays: str
+    provider: str
+    notice: str
+
+
 class JobOut(BaseModel):
     job_id: uuid.UUID
     request_id: uuid.UUID
     artisan_id: uuid.UUID
     customer_id: uuid.UUID
-    agreed_price: int
+    pricing_mode: str = Field(description="FIXED_PRICE or INSPECTION_REQUIRED")
+    proposed_price: int | None
+    proposed_by: str | None
+    agreed_price: int | None
+    artisan_agreed: bool
+    escrow_status: str = Field(description="NOT_PAID, AWAITING_PAYMENT, HELD, RELEASED or REFUNDED")
+    payment_due: PaymentOut | None = Field(description="The payment YOU still have to approve, if any")
+    payments: list[PaymentOut]
     status: str
     customer_confirmed: bool
     artisan_confirmed: bool
     created_at: datetime
     completed_at: datetime | None
     counterpart_phone: str | None = Field(description="Shown to the two parties once the job is accepted")
+    counterpart_whatsapp_link: str | None
     events: list[JobEventOut]
 
 

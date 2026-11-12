@@ -94,10 +94,8 @@ def test_reputation_improves_ranking(world):
         c = world.user("CUSTOMER")
         req = world.request(c, skill_id)
         job_id = world.job(c, veteran, req)
-        for action in ("accept", "start"):
-            world.client.post(f"/jobs/{job_id}/{action}", headers=veteran.headers)
-        for who in (c, veteran):
-            world.client.post(f"/jobs/{job_id}/confirm-completion", headers=who.headers)
+        world.work_started(c, veteran, job_id)
+        world.complete(c, veteran, job_id)
         assert world.client.post(f"/jobs/{job_id}/reviews", headers=c.headers, json={"rating": 5}).status_code == 201
     body = _matches(world, customer, world.request(customer, skill_id, "Molyko, Buea"))
     assert [x["full_name"] for x in body["matches"]] == ["Veteran", "Newcomer"]

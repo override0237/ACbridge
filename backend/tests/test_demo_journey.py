@@ -20,7 +20,15 @@ def test_complete_demo_journey(client, session_factory):
         "SKILL_NOT_VERIFIED_FOR_SAFETY_CRITICAL_WORK": 1, "UNAVAILABLE": 1, "OUTSIDE_SERVICE_AREA": 1}
 
     assert result["job"]["status"] == "COMPLETED"
-    assert [e["event_type"] for e in result["job"]["events"]][-1] == "JOB_COMPLETED"
     reputation = result["reputation"]
     assert reputation["verified_reviews"] == 1
     assert reputation["reputation_score"] == pytest.approx(1 / 11 * 5 + 10 / 11 * 4, abs=1e-3)   # 4.0909
+    # Payments: commission (5% of 9000 = 450) was paid by John; Mary's 9000 was escrowed and then released.
+    job = result["job"]
+    assert job["agreed_price"] == 9000 and job["escrow_status"] == "RELEASED"
+    types = {p["payment_type"]: p for p in job["payments"]}
+    assert types["JOB_PAYMENT"]["amount"] == 9000 and types["JOB_PAYMENT"]["status"] == "RELEASED"
+    events = [e["event_type"] for e in job["events"]]
+    assert "PAYMENT_SUCCEEDED" in events and events[-2:] == ["JOB_COMPLETED", "PAYOUT_RELEASED"]
+    # WhatsApp: John opted in, Paul did too; Samuel etc. were filtered out anyway
+    assert all(m["contact"] is not None for m in matches["matches"])

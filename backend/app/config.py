@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     reputation_min_evidence: int = 10
     reputation_platform_average: float = 4.0
 
+    # Platform revenue. Fixed-price jobs: the artisan pays COMMISSION_RATE_BPS basis points (500 = 5%) of the agreed
+    # price, never less than COMMISSION_MIN. Inspection jobs: the artisan pays one flat INSPECTION_ASSIGNMENT_FEE.
+    commission_rate_bps: int = 500
+    commission_min: int = 300
+    inspection_assignment_fee: int = 1000
+
+    # Only "simulated" exists: no real money moves. Real MTN MoMo / Orange Money needs provider accounts.
+    payment_provider: str = "simulated"
+
     # HONESTY FLAG: no real-world identity/skill assessment happens in this MVP.
     verification_mode: str = "SIMULATED"
 
@@ -50,6 +59,8 @@ class Settings(BaseSettings):
     def _refuse_insecure_secret_in_production(self) -> "Settings":
         if self.environment.lower() == "production" and self.jwt_secret == _INSECURE_DEFAULT_SECRET:
             raise ValueError("JWT_SECRET must be set to a strong random value in production")
+        if self.environment.lower() == "production" and self.payment_provider == "simulated":
+            raise ValueError("The simulated payment provider moves no real money and cannot run in production")
         return self
 
 
