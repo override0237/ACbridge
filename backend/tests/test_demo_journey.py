@@ -32,3 +32,19 @@ def test_complete_demo_journey(client, session_factory):
     assert "PAYMENT_SUCCEEDED" in events and events[-2:] == ["JOB_COMPLETED", "PAYOUT_RELEASED"]
     # WhatsApp: John opted in, Paul did too; Samuel etc. were filtered out anyway
     assert all(m["contact"] is not None for m in matches["matches"])
+    # Hardship scenario at the end of the demo: job cancelled, assignment fee AND escrow refunded
+    inspection = result["inspection_job"]
+    assert inspection["status"] == "CANCELLED"
+    assert {p["payment_type"]: p["status"] for p in inspection["payments"]} == {
+        "ASSIGNMENT_FEE": "REFUNDED", "JOB_PAYMENT": "REFUNDED"}
+
+
+def test_demo_with_the_real_24_hour_probation(client, session_factory, monkeypatch):
+    """Same journey with probation switched on: the demo uses the admin simulation tool to skip the wait."""
+    from app.config import get_settings
+    monkeypatch.setattr(get_settings(), "probation_hours", 24)
+    with session_factory() as db:
+        seed(db)
+    result = run(client, VERIFIER_PHONE, DEMO_PASSWORD, verbose=False)
+    assert result["job"]["status"] == "COMPLETED"
+    assert "PROBATION_SKIPPED" in [e["event_type"] for e in result["job"]["events"]]

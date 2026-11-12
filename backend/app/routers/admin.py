@@ -8,7 +8,7 @@ from app.models import ArtisanProfile, Role, User
 from app.schemas import DisputeResolutionIn, JobOut, RoleChangeIn, UserOut
 from app.routers.jobs import to_out as job_to_out
 from app.security.permissions import require_roles
-from app.services import job_service
+from app.services import job_service, payment_providers
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 AdminUser = Depends(require_roles(Role.ADMIN))
@@ -44,6 +44,14 @@ def suspend(artisan_id: uuid.UUID, _: User = AdminUser, db: Session = Depends(ge
 @router.post("/artisans/{artisan_id}/unsuspend")
 def unsuspend(artisan_id: uuid.UUID, _: User = AdminUser, db: Session = Depends(get_db)) -> dict:
     return _set_suspended(db, artisan_id, False)
+
+
+@router.post("/jobs/{job_id}/skip-probation", response_model=JobOut)
+def skip_probation(job_id: uuid.UUID, admin: User = AdminUser, db: Session = Depends(get_db)) -> JobOut:
+    """DEMO ONLY: ends the cooling-off period immediately. Exists only while the payment provider is simulated."""
+    if not payment_providers.is_simulated():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    return job_to_out(job_service.skip_probation_simulated(db, admin, job_id), admin)
 
 
 @router.post("/jobs/{job_id}/resolve-dispute", response_model=JobOut)

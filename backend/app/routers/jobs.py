@@ -40,7 +40,9 @@ def to_out(job: Job, user: User) -> JobOut:
     due = next((p for p in visible if p.status == PaymentStatus.PENDING.value and p.payer_id == user.user_id), None)
     return JobOut(
         pricing_mode=job.pricing_mode, proposed_price=job.proposed_price, proposed_by=job.proposed_by,
-        artisan_agreed=job.artisan_agreed, escrow_status=_escrow_status(job),
+        artisan_agreed=job.artisan_agreed, terms_agreed_at=job.terms_agreed_at,
+        probation_ends_at=job.probation_ends_at, probation_active=svc.probation_active(job),
+        can_cancel_freely=svc.can_cancel_freely(job), escrow_status=_escrow_status(job),
         payment_due=payment_out(due) if due else None, payments=[payment_out(p) for p in visible],
         counterpart_whatsapp_link=svc.counterpart_whatsapp_link(job, user),
         job_id=job.job_id, request_id=job.request_id, artisan_id=job.artisan_id,
@@ -68,6 +70,13 @@ def get_job(job_id: uuid.UUID, user: User = Depends(get_current_user), db: Sessi
 @router.post("/{job_id}/accept", response_model=JobOut)
 def accept(job_id: uuid.UUID, user: User = Depends(require_roles(Role.ARTISAN)), db: Session = Depends(get_db)) -> JobOut:
     return to_out(svc.accept_job(db, user, job_id), user)
+
+
+@router.post("/{job_id}/confirm-terms", response_model=JobOut)
+def confirm_terms(job_id: uuid.UUID, user: User = Depends(require_roles(Role.ARTISAN)),
+                  db: Session = Depends(get_db)) -> JobOut:
+    """Fixed-price jobs: final confirmation after the cooling-off period. Creates the commission payment."""
+    return to_out(svc.confirm_terms(db, user, job_id), user)
 
 
 @router.post("/{job_id}/pay", response_model=PaymentOut, status_code=status.HTTP_201_CREATED, tags=["payments"])

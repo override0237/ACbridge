@@ -13,9 +13,11 @@ import httpx
 
 DEMO_PASSWORD = "Demo-Pass-123!"
 VERIFIER_PHONE = "+237670000002"
+ADMIN_PHONE = "+237670000001"
 
 
-def run(client, verifier_phone: str = VERIFIER_PHONE, password: str = DEMO_PASSWORD, verbose: bool = True) -> dict:
+def run(client, verifier_phone: str = VERIFIER_PHONE, password: str = DEMO_PASSWORD, verbose: bool = True,
+        admin_phone: str = ADMIN_PHONE) -> dict:
     def show(step: str, response, keys: tuple[str, ...] = ()) -> dict:
         assert response.status_code < 300, f"{step} failed: {response.status_code} {response.text}"
         body = response.json()
@@ -32,6 +34,7 @@ def run(client, verifier_phone: str = VERIFIER_PHONE, password: str = DEMO_PASSW
         return "+2376" + "".join(str(random.randint(0, 9)) for _ in range(8))
 
     verifier = auth(verifier_phone)
+    admin = auth(admin_phone)
     skills = {s["skill_name"]: s["skill_id"] for s in client.get("/skills").json()}
     electrical = skills["Electrical Repair"]
 
@@ -91,17 +94,28 @@ def run(client, verifier_phone: str = VERIFIER_PHONE, password: str = DEMO_PASSW
         return show(label, client.post(f"/payments/{payment['payment_id']}/simulate-approval", headers=headers),
                     ("payment_type", "amount", "status", "simulated"))
 
-    # 9. Mary proposes 9,000 FCFA; John agrees and pays the platform COMMISSION; only then is the job ACCEPTED
+    # 9. Mary proposes 9,000 FCFA; John agrees -> 24h probation -> he confirms and pays the COMMISSION -> ACCEPTED
     show("9-policy. Fee policy (public)", client.get("/pricing"))
     job = show("9a. Mary proposes 9,000 FCFA to John", client.post("/jobs", headers=mary, json={
         "request_id": request["request_id"], "artisan_id": artisan_id, "proposed_price": 9000}),
         ("job_id", "status", "pricing_mode", "proposed_price"))
     job_id = job["job_id"]
-    agreed = show("9b. John agrees to the amount -> commission due", client.post(f"/jobs/{job_id}/accept", headers=john),
-                  ("status", "agreed_price", "payment_due"))
-    approve(agreed["payment_due"], john, "9c. John pays the commission (SIMULATED mobile money)")
+    agreed = show("9b. John agrees to the amount -> cooling-off starts, NO money moves yet",
+                  client.post(f"/jobs/{job_id}/accept", headers=john),
+                  ("status", "agreed_price", "probation_active", "probation_ends_at", "payment_due", "can_cancel_freely"))
+    if agreed["probation_active"]:
+        # Either side could withdraw for free now. The simulation lets the admin skip the 24 hours for the demo.
+        early = client.post(f"/jobs/{job_id}/confirm-terms", headers=john)
+        if verbose:
+            print(f"\n[9b2. John tries to confirm during probation] HTTP {early.status_code}: {early.json()['detail']}")
+        assert early.status_code == 409
+        show("9b3. (DEMO ONLY) admin skips the 24h cooling-off", client.post(f"/admin/jobs/{job_id}/skip-probation", headers=admin),
+             ("probation_active",))
+    confirmed = show("9b4. After probation John makes the FINAL confirmation -> commission due",
+                     client.post(f"/jobs/{job_id}/confirm-terms", headers=john), ("status", "payment_due"))
+    approve(confirmed["payment_due"], john, "9c. John pays the commission (SIMULATED mobile money)")
     show("9d. Job is now ACCEPTED", client.get(f"/jobs/{job_id}", headers=john),
-         ("status", "counterpart_phone", "counterpart_whatsapp_link"))
+         ("status", "can_cancel_freely", "counterpart_phone", "counterpart_whatsapp_link"))
 
     # 10. Mary pays the agreed amount INTO ESCROW; John starts the work
     escrow = show("10a. Mary pays 9,000 FCFA to the platform", client.post(f"/jobs/{job_id}/pay", headers=mary),
@@ -133,20 +147,48 @@ def run(client, verifier_phone: str = VERIFIER_PHONE, password: str = DEMO_PASSW
     approve(due2["payment_due"], john, "15d. John pays the flat assignment fee")
     show("15e. John inspects and quotes 15,000 FCFA", client.post(f"/jobs/{job2['job_id']}/quote", headers=john,
          json={"amount": 15000}), ("status", "proposed_price", "proposed_by"))
-    show("15f. Mary approves the quote", client.post(f"/jobs/{job2['job_id']}/quote/respond", headers=mary,
-         json={"approve": True}), ("status", "agreed_price"))
+    approved = show("15f. Mary approves the quote -> cooling-off starts", client.post(f"/jobs/{job2['job_id']}/quote/respond",
+                    headers=mary, json={"approve": True}), ("status", "agreed_price", "probation_active"))
+    if approved["probation_active"]:
+        early = client.post(f"/jobs/{job2['job_id']}/pay", headers=mary)
+        assert early.status_code == 409
+        if verbose:
+            print(f"\n[15g. Mary tries to pay during probation] HTTP {early.status_code}: {early.json()['detail']}")
+        client.post(f"/admin/jobs/{job2['job_id']}/skip-probation", headers=admin)
+    escrow2 = show("15h. Mary pays the agreed 15,000 FCFA into escrow", client.post(f"/jobs/{job2['job_id']}/pay", headers=mary),
+                   ("payment_type", "amount", "status"))
+    approve(escrow2, mary, "15i. Mary approves the escrow payment")
+
+    # ---- Third scenario: hardship (the ONLY way fees are refunded) ----
+    cancel = client.post(f"/jobs/{job2['job_id']}/cancel", headers=mary, json={})
+    if verbose:
+        print(f"\n[16. Mary tries to just cancel the confirmed job] HTTP {cancel.status_code}: {cancel.json()['detail']}")
+    assert cancel.status_code == 409
+    claim = show("17a. Mary files a hardship claim (artisan hospitalised after an accident)", client.post(
+        f"/jobs/{job2['job_id']}/hardship-claims", headers=mary, json={
+            "kind": "ACCIDENT_OR_SERIOUS_ILLNESS", "affected_party": "ARTISAN",
+            "description": "John was admitted to hospital after a road accident."}), ("claim_id", "status", "required_proof"))
+    show("17b. She uploads the medical record", client.post(f"/hardship-claims/{claim['claim_id']}/document", headers=mary,
+         files={"file": ("medical-record.pdf", b"%PDF-1.4 demo medical record", "application/pdf")}), ("status", "has_document"))
+    show("17c. Admin checks the document and approves", client.post(f"/admin/hardship-claims/{claim['claim_id']}/decision",
+         headers=admin, json={"approve": True, "notes": "Medical record verified (SIMULATED demo)."}), ("status",))
+    refunded = client.get(f"/jobs/{job2['job_id']}", headers=admin).json()
+    if verbose:
+        print("\n[17d. Result]", refunded["status"], {p["payment_type"]: p["status"] for p in refunded["payments"]})
+
     final_job = client.get(f"/jobs/{job_id}", headers=mary).json()
     if verbose:
         print("\nAudit trail:", " -> ".join(e["event_type"] for e in final_job["events"]))
     return {"artisan_id": artisan_id, "job": final_job, "matches": matches, "reputation": reputation,
-            "inspection_job_id": job2["job_id"], "john": john, "mary": mary}
+            "inspection_job": refunded}
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--verifier-phone", default=VERIFIER_PHONE)
+    parser.add_argument("--admin-phone", default=ADMIN_PHONE)
     parser.add_argument("--password", default=DEMO_PASSWORD)
     args = parser.parse_args()
     with httpx.Client(base_url=args.base_url, timeout=30) as http_client:
-        run(http_client, args.verifier_phone, args.password)
+        run(http_client, args.verifier_phone, args.password, admin_phone=args.admin_phone)

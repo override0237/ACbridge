@@ -87,6 +87,22 @@ class JobStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
+class HardshipKind(str, enum.Enum):
+    DEATH = "DEATH"                                    # proof: death certificate
+    ACCIDENT_OR_SERIOUS_ILLNESS = "ACCIDENT_OR_SERIOUS_ILLNESS"  # proof: medical records
+
+
+class AffectedParty(str, enum.Enum):
+    CUSTOMER = "CUSTOMER"
+    ARTISAN = "ARTISAN"
+
+
+class ClaimStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
 class PricingMode(str, enum.Enum):
     FIXED_PRICE = "FIXED_PRICE"                # customer proposes an amount; artisan pays a % commission once they agree
     INSPECTION_REQUIRED = "INSPECTION_REQUIRED"  # price unknown until inspected; artisan pays a flat assignment fee
@@ -325,6 +341,9 @@ class Job(Base):
     proposed_price: Mapped[int | None] = mapped_column(Integer)   # latest offer on the table (FCFA)
     proposed_by: Mapped[str | None] = mapped_column(String(8))    # 'CUSTOMER' or 'ARTISAN'
     agreed_price: Mapped[int | None] = mapped_column(Integer)     # NULL until both sides accept an amount
+    terms_agreed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # End of the cooling-off period that starts when the price is agreed (see job_service).
+    probation_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     artisan_agreed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     status: Mapped[str] = mapped_column(
         String(24), nullable=False, default=JobStatus.REQUESTED.value, server_default=JobStatus.REQUESTED.value
@@ -339,6 +358,7 @@ class Job(Base):
     events: Mapped[list["JobEvent"]] = relationship(back_populates="job", order_by="JobEvent.created_at")
     reviews: Mapped[list["Review"]] = relationship(back_populates="job")
     payments: Mapped[list["Payment"]] = relationship(back_populates="job", order_by="Payment.created_at")
+    hardship_claims: Mapped[list["HardshipClaim"]] = relationship(back_populates="job")
 
 
 # --------------------------------------------------------------------------- K. payments (platform money flow)
@@ -382,6 +402,45 @@ class Payment(Base):
 
     job: Mapped[Job] = relationship(back_populates="payments")
     payer: Mapped[User] = relationship()
+
+
+# --------------------------------------------------------------------------- L. hardship_claims
+class HardshipClaim(Base):
+    """The ONLY route to refund platform fees: proven death or serious accident/illness of a party.
+
+    A party files the claim and uploads a death certificate / medical record; an administrator checks the
+    document and decides. Approval cancels the job and refunds the fee AND the escrow.
+    """
+
+    __tablename__ = "hardship_claims"
+    __table_args__ = (
+        CheckConstraint(_in("kind", HardshipKind), name="kind_valid"),
+        CheckConstraint(_in("affected_party", AffectedParty), name="party_valid"),
+        CheckConstraint(_in("status", ClaimStatus), name="status_valid"),
+        # An approved claim must have been backed by a stored document.
+        CheckConstraint("status <> 'APPROVED' OR document_path IS NOT NULL", name="approved_needs_document"),
+        Index("uq_hardship_one_open_claim_per_job", "job_id", unique=True,
+              postgresql_where=text("status = 'PENDING'"), sqlite_where=text("status = 'PENDING'")),
+        Index("ix_hardship_claims_status", "status"),
+    )
+
+    claim_id: Mapped[uuid.UUID] = _uuid_pk()
+    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.job_id"), nullable=False)
+    claimant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    affected_party: Mapped[str] = mapped_column(String(16), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    document_path: Mapped[str | None] = mapped_column(String(255))   # private; never exposed through the API
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default=ClaimStatus.PENDING.value, server_default=ClaimStatus.PENDING.value
+    )
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.user_id"))
+    decision_notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    job: Mapped[Job] = relationship(back_populates="hardship_claims")
+    claimant: Mapped[User] = relationship(foreign_keys=[claimant_id])
 
 
 # --------------------------------------------------------------------------- I. job_events (append-only)

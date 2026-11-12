@@ -279,6 +279,20 @@
         "title": "ArtisanSkillOut",
         "type": "object"
       },
+      "Body_upload_document_hardship_claims__claim_id__document_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_hardship_claims__claim_id__document_post",
+        "type": "object"
+      },
       "Body_upload_evidence_verifications__verification_id__evidence_post": {
         "properties": {
           "file": {
@@ -452,6 +466,142 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HardshipClaimIn": {
+        "properties": {
+          "affected_party": {
+            "description": "Who died or was seriously hurt/ill",
+            "enum": [
+              "CUSTOMER",
+              "ARTISAN"
+            ],
+            "title": "Affected Party",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "DEATH",
+              "ACCIDENT_OR_SERIOUS_ILLNESS"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "affected_party",
+          "description"
+        ],
+        "title": "HardshipClaimIn",
+        "type": "object"
+      },
+      "HardshipClaimOut": {
+        "properties": {
+          "affected_party": {
+            "title": "Affected Party",
+            "type": "string"
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decision_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Notes"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "has_document": {
+            "title": "Has Document",
+            "type": "boolean"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "required_proof": {
+            "title": "Required Proof",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "job_id",
+          "kind",
+          "affected_party",
+          "description",
+          "status",
+          "has_document",
+          "decision_notes",
+          "created_at",
+          "decided_at",
+          "required_proof"
+        ],
+        "title": "HardshipClaimOut",
+        "type": "object"
+      },
+      "HardshipDecisionIn": {
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "notes": {
+            "description": "What document you checked and why",
+            "maxLength": 2000,
+            "minLength": 5,
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approve",
+          "notes"
+        ],
+        "title": "HardshipDecisionIn",
+        "type": "object"
+      },
       "JobCreateIn": {
         "properties": {
           "artisan_id": {
@@ -556,6 +706,11 @@
             "title": "Artisan Id",
             "type": "string"
           },
+          "can_cancel_freely": {
+            "description": "False once confirmed: only a hardship claim or dispute remains",
+            "title": "Can Cancel Freely",
+            "type": "boolean"
+          },
           "completed_at": {
             "anyOf": [
               {
@@ -645,6 +800,23 @@
             "title": "Pricing Mode",
             "type": "string"
           },
+          "probation_active": {
+            "description": "True while both sides can still withdraw for free",
+            "title": "Probation Active",
+            "type": "boolean"
+          },
+          "probation_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probation Ends At"
+          },
           "proposed_by": {
             "anyOf": [
               {
@@ -675,6 +847,18 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "terms_agreed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terms Agreed At"
           }
         },
         "required": [
@@ -687,6 +871,10 @@
           "proposed_by",
           "agreed_price",
           "artisan_agreed",
+          "terms_agreed_at",
+          "probation_ends_at",
+          "probation_active",
+          "can_cancel_freely",
           "escrow_status",
           "payment_due",
           "payments",
@@ -964,8 +1152,20 @@
             "title": "Notice",
             "type": "string"
           },
+          "probation_hours": {
+            "title": "Probation Hours",
+            "type": "integer"
+          },
+          "probation_rule": {
+            "title": "Probation Rule",
+            "type": "string"
+          },
           "provider": {
             "title": "Provider",
+            "type": "string"
+          },
+          "refund_policy": {
+            "title": "Refund Policy",
             "type": "string"
           }
         },
@@ -976,6 +1176,9 @@
           "inspection_assignment_fee",
           "fees_paid_by",
           "customer_pays",
+          "probation_hours",
+          "probation_rule",
+          "refund_policy",
           "provider",
           "notice"
         ],
@@ -1803,6 +2006,94 @@
         ]
       }
     },
+    "/admin/hardship-claims": {
+      "get": {
+        "operationId": "pending_claims_admin_hardship_claims_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HardshipClaimOut"
+                  },
+                  "title": "Response Pending Claims Admin Hardship Claims Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Pending Claims",
+        "tags": [
+          "hardship claims"
+        ]
+      }
+    },
+    "/admin/hardship-claims/{claim_id}/decision": {
+      "post": {
+        "operationId": "decide_claim_admin_hardship_claims__claim_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HardshipDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardshipClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Claim",
+        "tags": [
+          "hardship claims"
+        ]
+      }
+    },
     "/admin/jobs/{job_id}/resolve-dispute": {
       "post": {
         "operationId": "resolve_dispute_admin_jobs__job_id__resolve_dispute_post",
@@ -1856,6 +2147,55 @@
           }
         ],
         "summary": "Resolve Dispute",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/jobs/{job_id}/skip-probation": {
+      "post": {
+        "description": "DEMO ONLY: ends the cooling-off period immediately. Exists only while the payment provider is simulated.",
+        "operationId": "skip_probation_admin_jobs__job_id__skip_probation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Skip Probation",
         "tags": [
           "admin"
         ]
@@ -2308,6 +2648,156 @@
         ]
       }
     },
+    "/hardship-claims/{claim_id}": {
+      "get": {
+        "operationId": "get_claim_hardship_claims__claim_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardshipClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Claim",
+        "tags": [
+          "hardship claims"
+        ]
+      }
+    },
+    "/hardship-claims/{claim_id}/document": {
+      "get": {
+        "operationId": "download_document_hardship_claims__claim_id__document_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Download Document",
+        "tags": [
+          "hardship claims"
+        ]
+      },
+      "post": {
+        "operationId": "upload_document_hardship_claims__claim_id__document_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_hardship_claims__claim_id__document_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardshipClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Document",
+        "tags": [
+          "hardship claims"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "health_health_get",
@@ -2580,6 +3070,55 @@
         ]
       }
     },
+    "/jobs/{job_id}/confirm-terms": {
+      "post": {
+        "description": "Fixed-price jobs: final confirmation after the cooling-off period. Creates the commission payment.",
+        "operationId": "confirm_terms_jobs__job_id__confirm_terms_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm Terms",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
     "/jobs/{job_id}/dispute": {
       "post": {
         "operationId": "dispute_jobs__job_id__dispute_post",
@@ -2635,6 +3174,65 @@
         "summary": "Dispute",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/hardship-claims": {
+      "post": {
+        "description": "A party to the job reports a death or serious accident/illness. Then upload the proof document.",
+        "operationId": "file_claim_jobs__job_id__hardship_claims_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HardshipClaimIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardshipClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "File Claim",
+        "tags": [
+          "hardship claims"
         ]
       }
     },

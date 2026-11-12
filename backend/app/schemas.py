@@ -299,6 +299,31 @@ class DisputeResolutionIn(BaseModel):
     notes: str = Field(min_length=5, max_length=1000)
 
 
+class HardshipClaimIn(BaseModel):
+    kind: Literal["DEATH", "ACCIDENT_OR_SERIOUS_ILLNESS"]
+    affected_party: Literal["CUSTOMER", "ARTISAN"] = Field(description="Who died or was seriously hurt/ill")
+    description: str = Field(min_length=10, max_length=2000)
+
+
+class HardshipDecisionIn(BaseModel):
+    approve: bool
+    notes: str = Field(min_length=5, max_length=2000, description="What document you checked and why")
+
+
+class HardshipClaimOut(BaseModel):
+    claim_id: uuid.UUID
+    job_id: uuid.UUID
+    kind: str
+    affected_party: str
+    description: str
+    status: str
+    has_document: bool
+    decision_notes: str | None
+    created_at: datetime
+    decided_at: datetime | None
+    required_proof: str
+
+
 class JobEventOut(ORM):
     event_id: uuid.UUID
     actor_id: uuid.UUID
@@ -329,6 +354,9 @@ class PricingPolicyOut(BaseModel):
     inspection_assignment_fee: int
     fees_paid_by: str
     customer_pays: str
+    probation_hours: int
+    probation_rule: str
+    refund_policy: str
     provider: str
     notice: str
 
@@ -343,6 +371,10 @@ class JobOut(BaseModel):
     proposed_by: str | None
     agreed_price: int | None
     artisan_agreed: bool
+    terms_agreed_at: datetime | None
+    probation_ends_at: datetime | None
+    probation_active: bool = Field(description="True while both sides can still withdraw for free")
+    can_cancel_freely: bool = Field(description="False once confirmed: only a hardship claim or dispute remains")
     escrow_status: str = Field(description="NOT_PAID, AWAITING_PAYMENT, HELD, RELEASED or REFUNDED")
     payment_due: PaymentOut | None = Field(description="The payment YOU still have to approve, if any")
     payments: list[PaymentOut]

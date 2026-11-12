@@ -123,11 +123,20 @@ class World:
         assert res.status_code == 200, res.text
         return res.json()
 
-    def accept(self, job_id: str, artisan: Actor) -> dict:
-        """Artisan agrees to the terms and pays the platform fee -> job ACCEPTED."""
+    def fee_due(self, job_id: str, artisan: Actor) -> dict:
+        """Artisan agrees (and, for fixed-price jobs, confirms after probation) -> the fee payment to approve."""
         res = self.client.post(f"/jobs/{job_id}/accept", headers=artisan.headers)
         assert res.status_code == 200, res.text
-        self.approve(res.json()["payment_due"]["payment_id"], artisan)
+        due = res.json()["payment_due"]
+        if due is None:   # fixed price: the commission is created by the final confirmation
+            res = self.client.post(f"/jobs/{job_id}/confirm-terms", headers=artisan.headers)
+            assert res.status_code == 200, res.text
+            due = res.json()["payment_due"]
+        return due
+
+    def accept(self, job_id: str, artisan: Actor) -> dict:
+        """Artisan agrees, confirms and pays the platform fee -> job ACCEPTED."""
+        self.approve(self.fee_due(job_id, artisan)["payment_id"], artisan)
         return self.client.get(f"/jobs/{job_id}", headers=artisan.headers).json()
 
     def fund(self, job_id: str, customer: Actor) -> dict:

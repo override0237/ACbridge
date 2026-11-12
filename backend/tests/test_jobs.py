@@ -23,9 +23,9 @@ def test_valid_job_creation_and_acceptance(world):
     assert job["status"] == "REQUESTED" and job["counterpart_phone"] is None   # no contact details before acceptance
 
     res = _post(world, john, f"/jobs/{job_id}/accept")
-    # Agreeing is not enough: the job is only ACCEPTED after the artisan pays the platform fee.
+    # Agreeing is not enough: the job is only ACCEPTED after the artisan confirms and pays the platform fee.
     assert res.status_code == 200 and res.json()["status"] == "REQUESTED"
-    assert res.json()["payment_due"]["payment_type"] == "COMMISSION"
+    assert world.fee_due(job_id, john)["payment_type"] == "COMMISSION"
     accepted = world.accept(job_id, john)
     assert accepted["status"] == "ACCEPTED"
     assert accepted["counterpart_phone"] == customer.phone

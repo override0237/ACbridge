@@ -7,7 +7,9 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.errors import DomainError
-from app.routers import admin, artisans, auth, jobs, matching, payments, requests, reviews, skills, verification
+from app.routers import (
+    admin, artisans, auth, hardship, jobs, matching, payments, requests, reviews, skills, verification,
+)
 
 
 @asynccontextmanager
@@ -46,5 +48,5 @@ def health() -> dict:
     return {"status": "ok", "app": "ACbridge"}
 
 
-for module in (auth, skills, artisans, verification, requests, matching, jobs, payments, reviews, admin):
+for module in (auth, skills, artisans, verification, requests, matching, jobs, payments, hardship, reviews, admin):
     app.include_router(module.router)

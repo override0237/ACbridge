@@ -7,6 +7,12 @@
                                                   +--dispute--> DISPUTED <--dispute-- COMPLETED
     DISPUTED --admin resolves--> CANCELLED | IN_PROGRESS            (COMPLETED and CANCELLED are final)
 
+Cooling-off ("probation"): when the price is agreed (fixed price: the artisan agrees; inspection job: the
+customer approves the quote) a PROBATION_HOURS window (default 24h) starts. During it either party may withdraw
+for free, the artisan cannot pay the commission and the customer cannot pay into escrow. Afterwards the artisan
+confirms (commission) and the customer pays: those payments are the final commitment. Once committed, a job can
+no longer be cancelled normally; refunds happen only through a proven hardship claim (hardship_service).
+
 Money gates (see payment_service):
   * REQUESTED -> ACCEPTED happens only when the artisan has agreed to the terms AND paid the platform fee
     (commission on a fixed price, or the flat assignment fee for jobs needing inspection).
@@ -23,7 +29,7 @@ Rules enforced here (never by the client):
   * Every transition writes an append-only job_events row.
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -43,8 +49,9 @@ S = JobStatus
 ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     S.REQUESTED.value: frozenset({S.ACCEPTED.value, S.CANCELLED.value}),
     S.ACCEPTED.value: frozenset({S.IN_PROGRESS.value, S.CANCELLED.value}),
-    S.IN_PROGRESS.value: frozenset({S.PENDING_CONFIRMATION.value, S.DISPUTED.value}),
-    S.PENDING_CONFIRMATION.value: frozenset({S.COMPLETED.value, S.DISPUTED.value}),
+    # CANCELLED from IN_PROGRESS / PENDING_CONFIRMATION is reachable ONLY through a proven hardship claim.
+    S.IN_PROGRESS.value: frozenset({S.PENDING_CONFIRMATION.value, S.DISPUTED.value, S.CANCELLED.value}),
+    S.PENDING_CONFIRMATION.value: frozenset({S.COMPLETED.value, S.DISPUTED.value, S.CANCELLED.value}),
     S.DISPUTED.value: frozenset({S.IN_PROGRESS.value, S.CANCELLED.value}),
     S.COMPLETED.value: frozenset(),
     S.CANCELLED.value: frozenset(),
@@ -106,6 +113,40 @@ def _require_party(job: Job, user: User, expected: str) -> None:
         raise PermissionDeniedError(f"Only the {expected.lower()} can do this")
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _aware(value: datetime) -> datetime:
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)  # SQLite returns naive datetimes
+
+
+def probation_active(job: Job) -> bool:
+    return job.probation_ends_at is not None and _now() < _aware(job.probation_ends_at)
+
+
+def can_cancel_freely(job: Job) -> bool:
+    """Normal cancellation is only possible before commitment: before the artisan's fee is paid (REQUESTED),
+    or on an accepted job while no price is agreed yet / the cooling-off period is still running."""
+    if job.status == S.REQUESTED.value:
+        return True
+    return job.status == S.ACCEPTED.value and (job.agreed_price is None or probation_active(job))
+
+
+def _start_probation(job: Job) -> datetime:
+    job.terms_agreed_at = _now()
+    job.probation_ends_at = job.terms_agreed_at + timedelta(hours=get_settings().probation_hours)
+    return job.probation_ends_at
+
+
+def _require_probation_over(job: Job) -> None:
+    if probation_active(job):
+        raise ConflictError(
+            f"Cooling-off period: both sides can still withdraw until {_aware(job.probation_ends_at).isoformat()}. "
+            "Payments open when it ends."
+        )
+
+
 # ----------------------------------------------------------------------------- actions
 def create_job(db: Session, customer: User, request_id: uuid.UUID, artisan_id: uuid.UUID,
                proposed_price: int | None) -> Job:
@@ -148,35 +189,75 @@ def create_job(db: Session, customer: User, request_id: uuid.UUID, artisan_id: u
 
 
 def accept_job(db: Session, user: User, job_id: uuid.UUID) -> Job:
-    """The artisan agrees to the terms. The job only becomes ACCEPTED once the platform fee is paid.
+    """The artisan agrees to the terms.
 
-    Fixed price  -> fee = commission on the proposed amount.
-    Inspection   -> fee = flat assignment fee (the price is quoted later).
-    Calling this again (e.g. after a failed payment) re-uses or recreates the pending fee: it is idempotent.
+    Fixed price : the price becomes agreed and the cooling-off period starts. NO money moves yet; after the
+                  period the artisan calls confirm-terms, which creates the commission payment.
+    Inspection  : the flat assignment fee is due immediately (the price comes later, from the quote).
+    Repeating the call never restarts probation or double-charges.
     """
     job = _lock_job(db, job_id)
     _require_party(job, user, "ARTISAN")
     if job.status != S.REQUESTED.value:
         raise ConflictError(f"A {job.status} job cannot be accepted")
-    artisan = job.artisan
-    if artisan.is_suspended or artisan.availability_status == AvailabilityStatus.UNAVAILABLE.value:
-        raise ConflictError("You must be available and in good standing to accept jobs")
+    _require_artisan_in_good_standing(job)
 
     if job.pricing_mode == PricingMode.FIXED_PRICE.value:
-        payment_type = PaymentType.COMMISSION.value
-        fee = payment_service.compute_commission(job.proposed_price)
-        description = f"Platform commission on an agreed price of {job.proposed_price} FCFA"
-        job.agreed_price = job.proposed_price          # the artisan confirmed they are OK with the amount
+        if not job.artisan_agreed:
+            job.artisan_agreed = True
+            job.agreed_price = job.proposed_price          # the artisan confirmed they are OK with the amount
+            ends = _start_probation(job)
+            _record(db, job, user, "TERMS_AGREED_BY_ARTISAN",
+                    {"agreed_price": job.agreed_price, "probation_ends_at": ends.isoformat(),
+                     "commission_if_confirmed": payment_service.compute_commission(job.agreed_price)})
     else:
-        payment_type = PaymentType.ASSIGNMENT_FEE.value
         fee = get_settings().inspection_assignment_fee
-        description = "Flat assignment fee for a job that needs inspection before pricing"
+        if not job.artisan_agreed:
+            job.artisan_agreed = True
+            _record(db, job, user, "TERMS_AGREED_BY_ARTISAN",
+                    {"pricing_mode": job.pricing_mode, "fee": fee, "fee_type": PaymentType.ASSIGNMENT_FEE.value})
+        payment_service.initiate(db, job, user, PaymentType.ASSIGNMENT_FEE.value, fee,
+                                 "Flat assignment fee for a job that needs inspection before pricing")
+    db.commit()
+    return job
 
-    if not job.artisan_agreed:
-        job.artisan_agreed = True
-        _record(db, job, user, "TERMS_AGREED_BY_ARTISAN",
-                {"pricing_mode": job.pricing_mode, "agreed_price": job.agreed_price, "fee": fee, "fee_type": payment_type})
-    payment_service.initiate(db, job, user, payment_type, fee, description)
+
+def confirm_terms(db: Session, user: User, job_id: uuid.UUID) -> Job:
+    """Fixed-price jobs: after the cooling-off period the artisan makes the FINAL confirmation, which creates
+    the commission payment. Paying it assigns the artisan (job ACCEPTED)."""
+    job = _lock_job(db, job_id)
+    _require_party(job, user, "ARTISAN")
+    if job.pricing_mode != PricingMode.FIXED_PRICE.value:
+        raise ConflictError("Only fixed-price jobs have a separate confirmation step")
+    if job.status != S.REQUESTED.value or not job.artisan_agreed:
+        raise ConflictError("Agree to the customer's price first (accept the job)")
+    _require_probation_over(job)
+    _require_artisan_in_good_standing(job)
+    first_time = payment_service.active_payment(job, PaymentType.COMMISSION.value) is None
+    fee = payment_service.compute_commission(job.agreed_price)
+    payment_service.initiate(db, job, user, PaymentType.COMMISSION.value, fee,
+                             f"Platform commission on an agreed price of {job.agreed_price} FCFA")
+    if first_time:
+        _record(db, job, user, "TERMS_CONFIRMED_BY_ARTISAN", {"fee": fee})
+    db.commit()
+    return job
+
+
+def _require_artisan_in_good_standing(job: Job) -> None:
+    artisan = job.artisan
+    if artisan.is_suspended or artisan.availability_status == AvailabilityStatus.UNAVAILABLE.value:
+        raise ConflictError("You must be available and in good standing to take jobs")
+
+
+def skip_probation_simulated(db: Session, admin: User, job_id: uuid.UUID) -> Job:
+    """DEMO ONLY (simulated mode): end the cooling-off period now so a demo need not wait 24 hours."""
+    if admin.role != Role.ADMIN.value:
+        raise PermissionDeniedError("Only administrators can do this")
+    job = _lock_job(db, job_id)
+    if job.probation_ends_at is None:
+        raise ConflictError("This job has no probation period")
+    job.probation_ends_at = _now()
+    _record(db, job, admin, "PROBATION_SKIPPED", {"simulated": True})
     db.commit()
     return job
 
@@ -210,6 +291,7 @@ def pay_job(db: Session, user: User, job_id: uuid.UUID):
         raise ConflictError("You can pay once the artisan has accepted the job (and before work starts)")
     if job.agreed_price is None:
         raise ConflictError("No price has been agreed yet: approve the artisan's quote first")
+    _require_probation_over(job)
     payment = payment_service.initiate(
         db, job, user, PaymentType.JOB_PAYMENT.value, job.agreed_price, "Customer payment held in escrow"
     )
@@ -238,7 +320,8 @@ def respond_to_quote(db: Session, user: User, job_id: uuid.UUID, approve: bool) 
         raise ConflictError("There is no open quote to answer")
     if approve:
         job.agreed_price = job.proposed_price
-        _record(db, job, user, "QUOTE_APPROVED", {"amount": job.agreed_price})
+        ends = _start_probation(job)
+        _record(db, job, user, "QUOTE_APPROVED", {"amount": job.agreed_price, "probation_ends_at": ends.isoformat()})
     else:
         _record(db, job, user, "QUOTE_REJECTED", {"amount": job.proposed_price})
         job.proposed_price, job.proposed_by = None, None
@@ -266,7 +349,13 @@ def cancel_job(db: Session, user: User, job_id: uuid.UUID, reason: str | None) -
     party = party_of(job, user)
     if party is None:
         raise PermissionDeniedError("You are not a party to this job")
-    _transition(db, job, S.CANCELLED.value, user, "JOB_CANCELLED", {"by": party, "reason": reason})
+    if not can_cancel_freely(job):
+        raise ConflictError(
+            "This job is confirmed and can no longer be cancelled. If one of you has died, or had a serious accident "
+            "or illness, file a hardship claim with proof; for any other problem, open a dispute."
+        )
+    _transition(db, job, S.CANCELLED.value, user, "JOB_CANCELLED",
+                {"by": party, "reason": reason, "during_probation": probation_active(job)})
     payment_service.close_open_payments(db, job, user, reason or "job cancelled")
     db.commit()
     return job
@@ -320,6 +409,17 @@ def resolve_dispute(db: Session, admin: User, job_id: uuid.UUID, outcome: str, n
     if outcome == S.CANCELLED.value:
         payment_service.close_open_payments(db, job, admin, notes)
     db.commit()
+    return job
+
+
+def cancel_for_hardship(db: Session, admin: User, job_id: uuid.UUID, claim_id: uuid.UUID, notes: str) -> Job:
+    """Admin approved a proven hardship claim: cancel the job and refund fees + escrow in one transaction."""
+    if admin.role != Role.ADMIN.value:
+        raise PermissionDeniedError("Only administrators can approve hardship claims")
+    job = _lock_job(db, job_id)
+    _transition(db, job, S.CANCELLED.value, admin, "JOB_CANCELLED_HARDSHIP",
+                {"claim_id": str(claim_id), "notes": notes})
+    payment_service.refund_all(db, job, admin, f"hardship claim {claim_id}")
     return job
 
 

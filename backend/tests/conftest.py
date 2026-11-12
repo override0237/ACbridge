@@ -9,6 +9,7 @@ import os
 
 os.environ["DATABASE_URL"] = "sqlite://"          # set BEFORE importing the app
 os.environ["RATE_LIMIT_ENABLED"] = "false"
+os.environ["PROBATION_HOURS"] = "0"      # most tests are not about the cooling-off period; dedicated tests enable it
 os.environ["EVIDENCE_UPLOAD_DIR"] = "/tmp/acbridge_test_uploads"
 os.environ["SUPPORTED_TOWNS"] = "buea,limbe"
 

@@ -43,11 +43,10 @@ def test_public_pricing_policy_is_transparent(client):
 # ------------------------------------------------------------------ fixed-price flow
 def test_artisan_pays_commission_after_agreeing_to_the_amount(world):
     customer, john, job_id = _setup(world, price=9000)
-    res = _post(world, john, f"/jobs/{job_id}/accept")
-    body = res.json()
+    body = _post(world, john, f"/jobs/{job_id}/accept").json()
     assert body["status"] == "REQUESTED"                          # NOT assigned until the fee is paid
     assert body["artisan_agreed"] is True and body["agreed_price"] == 9000
-    due = body["payment_due"]
+    due = world.fee_due(job_id, john)
     assert (due["payment_type"], due["amount"], due["status"]) == ("COMMISSION", 450, "PENDING")
     assert due["simulated"] is True
     # the customer cannot see the artisan's commission or pay it
@@ -62,11 +61,11 @@ def test_artisan_pays_commission_after_agreeing_to_the_amount(world):
 
 def test_failed_fee_payment_can_be_retried(world):
     customer, john, job_id = _setup(world)
-    first = _post(world, john, f"/jobs/{job_id}/accept").json()["payment_due"]
+    first = world.fee_due(job_id, john)
     failed = _post(world, john, f"/payments/{first['payment_id']}/simulate-failure").json()
     assert failed["status"] == "FAILED"
     assert _get_job(world, john, job_id)["status"] == "REQUESTED"          # still not assigned
-    retry = _post(world, john, f"/jobs/{job_id}/accept").json()["payment_due"]
+    retry = _post(world, john, f"/jobs/{job_id}/confirm-terms").json()["payment_due"]
     assert retry["payment_id"] != first["payment_id"] and retry["status"] == "PENDING"
     world.approve(retry["payment_id"], john)
     assert _get_job(world, john, job_id)["status"] == "ACCEPTED"
@@ -74,15 +73,17 @@ def test_failed_fee_payment_can_be_retried(world):
 
 def test_accept_is_idempotent_no_double_charge(world):
     customer, john, job_id = _setup(world)
-    a = _post(world, john, f"/jobs/{job_id}/accept").json()["payment_due"]
-    b = _post(world, john, f"/jobs/{job_id}/accept").json()["payment_due"]
+    a = world.fee_due(job_id, john)
+    b = _post(world, john, f"/jobs/{job_id}/confirm-terms").json()["payment_due"]
+    _post(world, john, f"/jobs/{job_id}/accept")             # repeating accept restarts nothing
     assert a["payment_id"] == b["payment_id"]
-    assert [e for e in _types(world, john, job_id)].count("TERMS_AGREED_BY_ARTISAN") == 1
+    types = _types(world, john, job_id)
+    assert types.count("TERMS_AGREED_BY_ARTISAN") == 1 and types.count("TERMS_CONFIRMED_BY_ARTISAN") == 1
 
 
 def test_settling_twice_changes_nothing(world):
     customer, john, job_id = _setup(world)
-    due = _post(world, john, f"/jobs/{job_id}/accept").json()["payment_due"]
+    due = world.fee_due(job_id, john)
     world.approve(due["payment_id"], john)
     world.approve(due["payment_id"], john)               # duplicate callback
     assert _types(world, john, job_id).count("PAYMENT_SUCCEEDED") == 1
@@ -90,7 +91,7 @@ def test_settling_twice_changes_nothing(world):
 
 def test_only_the_payer_can_settle_a_payment(world):
     customer, john, job_id = _setup(world)
-    due = _post(world, john, f"/jobs/{job_id}/accept").json()["payment_due"]
+    due = world.fee_due(job_id, john)
     stranger = world.user("CUSTOMER")
     for actor in (customer, stranger):
         assert _post(world, actor, f"/payments/{due['payment_id']}/simulate-approval").status_code == 404
@@ -137,20 +138,13 @@ def test_escrow_is_released_to_the_artisan_only_after_both_confirm(world):
     assert _types(world, john, job_id)[-1] == "PAYOUT_RELEASED"
 
 
-def test_cancelling_refunds_escrow_and_voids_pending_charges(world):
+def test_cancelling_before_commitment_voids_a_pending_fee(world):
     customer, john, job_id = _setup(world)
-    world.accept(job_id, john)
-    world.fund(job_id, customer)
-    res = _post(world, customer, f"/jobs/{job_id}/cancel", json={"reason": "plans changed"})
-    assert res.json()["status"] == "CANCELLED" and res.json()["escrow_status"] == "REFUNDED"
-    assert "ESCROW_REFUNDED" in _types(world, customer, job_id)
-
-    # a fee still waiting for approval is voided when the job is cancelled
-    customer2, john2, job2 = _setup(world)
-    due = _post(world, john2, f"/jobs/{job2}/accept").json()["payment_due"]
-    _post(world, customer2, f"/jobs/{job2}/cancel", json={})
-    assert _post(world, john2, f"/payments/{due['payment_id']}/simulate-approval").status_code == 200  # no-op
-    assert _get_job(world, john2, job2)["status"] == "CANCELLED"
+    due = world.fee_due(job_id, john)                    # fee charged but not yet approved
+    assert _post(world, customer, f"/jobs/{job_id}/cancel", json={}).json()["status"] == "CANCELLED"
+    assert _post(world, john, f"/payments/{due['payment_id']}/simulate-approval").status_code == 200   # no-op
+    job = _get_job(world, john, job_id)
+    assert job["status"] == "CANCELLED" and job["payment_due"] is None
 
 
 def test_dispute_cancelled_by_admin_refunds_the_customer(world):
@@ -219,7 +213,7 @@ def test_quote_not_allowed_on_fixed_price_job(world):
 # ------------------------------------------------------------------ database guarantees
 def test_database_allows_only_one_active_payment_per_type(world, session_factory):
     customer, john, job_id = _setup(world)
-    _post(world, john, f"/jobs/{job_id}/accept")
+    world.fee_due(job_id, john)
     with session_factory() as db:
         existing = db.query(Payment).one()
         db.add(Payment(job_id=existing.job_id, payer_id=existing.payer_id, payment_type=existing.payment_type,

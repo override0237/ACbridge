@@ -41,6 +41,12 @@ def pricing_policy() -> dict:
         "inspection_assignment_fee": settings.inspection_assignment_fee,
         "fees_paid_by": "ARTISAN",
         "customer_pays": "the agreed price, held in escrow until the job is confirmed complete",
+        "probation_hours": settings.probation_hours,
+        "probation_rule": "After the price is agreed both sides have a cooling-off period: either may withdraw "
+                          "for free and no fee or escrow can be paid until it ends.",
+        "refund_policy": "Fees and escrow are refunded only after a confirmed job is cancelled because of the "
+                         "death, or a serious accident/illness, of a party - proven by a death certificate or "
+                         "medical records and approved by an administrator.",
         "provider": get_provider().name,
     }
 
@@ -104,13 +110,32 @@ def release_escrow(db: Session, job: Job, actor: User) -> None:
 
 
 def close_open_payments(db: Session, job: Job, actor: User, reason: str) -> None:
-    """Job cancelled: refund escrow already paid, and void any charge still waiting for approval.
-    Platform fees already paid are NOT refunded automatically (policy: handled by an administrator)."""
+    """Dispute resolved as cancelled: refund escrow already paid, and void any charge still waiting for approval.
+    Platform fees are NEVER returned here: only a proven hardship claim refunds them (see refund_all)."""
     for payment in job.payments:
         if payment.payment_type == PaymentType.JOB_PAYMENT.value and payment.status == PaymentStatus.SUCCEEDED.value:
             reference = get_provider().refund(payment.payment_id, payment.amount)
             payment.status = PaymentStatus.REFUNDED.value
             _event(db, job.job_id, actor.user_id, "ESCROW_REFUNDED",
+                   {"payment_id": str(payment.payment_id), "amount": payment.amount, "reference": reference,
+                    "reason": reason})
+        elif payment.status == PaymentStatus.PENDING.value:
+            payment.status = PaymentStatus.FAILED.value
+            payment.settled_at = datetime.now(timezone.utc)
+            _event(db, job.job_id, actor.user_id, "PAYMENT_VOIDED",
+                   {"payment_id": str(payment.payment_id), "reason": reason})
+
+
+def refund_all(db: Session, job: Job, actor: User, reason: str) -> None:
+    """Proven-hardship cancellation: refund EVERYTHING paid for this job (platform fees and escrow)
+    and void anything still pending. This is the only path that returns platform fees."""
+    provider = get_provider()
+    for payment in job.payments:
+        if payment.status == PaymentStatus.SUCCEEDED.value:
+            reference = provider.refund(payment.payment_id, payment.amount)
+            payment.status = PaymentStatus.REFUNDED.value
+            kind = "FEE_REFUNDED" if payment.payment_type in FEE_TYPES else "ESCROW_REFUNDED"
+            _event(db, job.job_id, actor.user_id, kind,
                    {"payment_id": str(payment.payment_id), "amount": payment.amount, "reference": reference,
                     "reason": reason})
         elif payment.status == PaymentStatus.PENDING.value:

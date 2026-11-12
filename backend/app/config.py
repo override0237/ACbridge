@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     commission_min: int = 300
     inspection_assignment_fee: int = 1000
 
+    # Cooling-off ("probation") after the price is agreed: either side may walk away for free, and no fee or
+    # escrow can be paid until it ends. 0 disables it (used by the automated tests).
+    probation_hours: int = 24
+
     # Only "simulated" exists: no real money moves. Real MTN MoMo / Orange Money needs provider accounts.
     payment_provider: str = "simulated"
 
