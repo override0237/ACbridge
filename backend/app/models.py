@@ -482,6 +482,47 @@ for _op in ("UPDATE", "DELETE"):
     )
 
 
+# --------------------------------------------------------------------------- I2. job chat
+class JobMessage(Base):
+    """One chat message between the two parties of a job. Append-only. proposed_price is set when the customer's
+    message (ending in an amount and a currency) became the job's proposed price."""
+
+    __tablename__ = "job_messages"
+    __table_args__ = (
+        CheckConstraint("length(body) BETWEEN 1 AND 500", name="body_length"),
+        CheckConstraint("sender_role IN ('CUSTOMER', 'ARTISAN')", name="sender_role_valid"),
+        CheckConstraint("proposed_price IS NULL OR proposed_price > 0", name="proposed_price_positive"),
+        Index("ix_job_messages_job_id_created_at", "job_id", "created_at"),
+    )
+
+    message_id: Mapped[uuid.UUID] = _uuid_pk()
+    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.job_id"), nullable=False)
+    sender_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    sender_role: Mapped[str] = mapped_column(String(8), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    proposed_price: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = _created_at()
+
+
+for _op in ("UPDATE", "DELETE"):  # chat history is evidence in a dispute: the DATABASE refuses edits and deletes
+    event.listen(
+        JobMessage.__table__,
+        "after_create",
+        DDL(
+            f"CREATE TRIGGER trg_job_messages_no_{_op.lower()} BEFORE {_op} ON job_messages "
+            "BEGIN SELECT RAISE(ABORT, 'job_messages is append-only'); END"
+        ).execute_if(dialect="sqlite"),
+    )
+    event.listen(
+        JobMessage.__table__,
+        "after_create",
+        DDL(
+            f"CREATE TRIGGER trg_job_messages_no_{_op.lower()} BEFORE {_op} ON job_messages "
+            "FOR EACH ROW EXECUTE FUNCTION acbridge_block_job_event_changes()"
+        ).execute_if(dialect="postgresql"),
+    )
+
+
 # --------------------------------------------------------------------------- J. reviews
 class Review(Base):
     __tablename__ = "reviews"

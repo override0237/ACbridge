@@ -388,6 +388,30 @@ class JobOut(BaseModel):
     events: list[JobEventOut]
 
 
+# ------------------------------------------------------------------ job chat
+class ChatMessageIn(BaseModel):
+    body: str = Field(min_length=1, max_length=500, description="Free text. End it with an amount and currency, "
+                      "e.g. '9000 FCFA', to propose that price (customer only).")
+
+
+class ChatMessageOut(BaseModel):
+    message_id: uuid.UUID
+    job_id: uuid.UUID
+    sender_role: str
+    body: str
+    created_at: datetime
+    proposed_price: int | None = Field(description="Set when this message became the job's proposed price")
+    commission_if_agreed: int | None = Field(description="Platform commission the artisan pays if this price is agreed")
+    artisan_receives_if_agreed: int | None
+
+
+class ChatSendOut(BaseModel):
+    message: ChatMessageOut
+    price_status: str = Field(
+        description="NONE (no amount found), APPLIED, OUT_OF_RANGE, LOCKED (artisan already agreed / not REQUESTED), "
+                    "NOT_APPLICABLE (inspection job) or NOT_CUSTOMER (only the customer sets the price)")
+
+
 # ------------------------------------------------------------------ reviews
 class ReviewIn(BaseModel):
     rating: int = Field(ge=1, le=5)
