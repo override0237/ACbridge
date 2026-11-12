@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -10,6 +10,8 @@ from app.schemas import (
     CancelIn, DisputeIn, JobCreateIn, JobEventOut, JobOut, PaymentOut, QuoteIn, QuoteResponseIn, ReviewIn, ReviewOut,
 )
 from app.services import payment_providers
+from app.config import get_settings
+from app.security import rate_limit as limiter
 from app.security.authentication import get_current_user
 from app.security.permissions import require_roles
 from app.services import job_service as svc
@@ -80,9 +82,13 @@ def confirm_terms(job_id: uuid.UUID, user: User = Depends(require_roles(Role.ART
 
 
 @router.post("/{job_id}/pay", response_model=PaymentOut, status_code=status.HTTP_201_CREATED, tags=["payments"])
-def pay(job_id: uuid.UUID, user: User = Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)) -> PaymentOut:
-    """Customer starts the escrow payment of the agreed price. Approve it with the payment endpoints."""
-    return payment_out(svc.pay_job(db, user, job_id))
+def pay(job_id: uuid.UUID, user: User = Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db),
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=80)) -> PaymentOut:
+    """Customer starts the payment of the agreed price (the amount comes from the server, never the request).
+    Send an `Idempotency-Key` header: repeating it returns the same payment. Limited per phone number."""
+    settings = get_settings()
+    limiter.check(f"pay:{user.phone}", settings.pay_rate_limit_calls, settings.pay_rate_limit_window_seconds)
+    return payment_out(svc.pay_job(db, user, job_id, idempotency_key))
 
 
 @router.get("/{job_id}/payments", response_model=list[PaymentOut], tags=["payments"])

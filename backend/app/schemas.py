@@ -388,6 +388,78 @@ class JobOut(BaseModel):
     events: list[JobEventOut]
 
 
+# ------------------------------------------------------------------ operator payments panel
+class ReasonIn(BaseModel):
+    reason: str = Field(min_length=5, max_length=300, description="Why (written to the audit log)")
+
+
+class OperatorPaymentOut(BaseModel):
+    payment_id: uuid.UUID
+    job_id: uuid.UUID
+    payment_type: str
+    amount: int
+    currency: str
+    status: str
+    provider: str
+    provider_reference: str | None
+    created_at: datetime
+    settled_at: datetime | None
+    payer_phone_masked: str
+
+
+class LedgerEntryOut(ORM):
+    entry_id: uuid.UUID
+    tx_key: str
+    payment_id: uuid.UUID | None
+    payout_id: uuid.UUID | None
+    account: str
+    direction: str
+    amount: int
+    created_at: datetime
+
+
+class LedgerOut(BaseModel):
+    balances: dict[str, int] = Field(description="collection, platform_revenue, artisan_pending, artisan_paid, refund_payable")
+    balanced: bool = Field(description="False if any transaction has debits different from credits")
+    unbalanced_transactions: list[str]
+    entries: list[LedgerEntryOut]
+
+
+class PayoutOut(BaseModel):
+    payout_id: uuid.UUID
+    job_id: uuid.UUID
+    artisan_id: uuid.UUID
+    artisan_name: str
+    payment_id: uuid.UUID
+    amount: int
+    commission: int
+    status: str
+    provider_reference: str | None
+    note: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReconciliationOut(BaseModel):
+    ledger: dict[str, int]
+    provider: dict
+    differences: dict[str, int]
+    unbalanced_transactions: list[str]
+    mismatch: bool
+    status: str = Field(description="OK or MISMATCH")
+    completed_jobs_without_payment: list[dict]
+
+
+class AuditLogOut(ORM):
+    audit_id: uuid.UUID
+    actor_type: str
+    actor_id: str | None
+    action: str
+    target: str
+    payload_hash: str
+    timestamp: datetime
+
+
 # ------------------------------------------------------------------ job chat
 class ChatMessageIn(BaseModel):
     body: str = Field(min_length=1, max_length=500, description="Free text. End it with an amount and currency, "

@@ -26,6 +26,13 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
 
 
+# Same function the job_events trigger uses; every append-only table creates it (idempotent) so table order never matters.
+_PG_BLOCK_FN = (
+    "CREATE OR REPLACE FUNCTION acbridge_block_job_event_changes() RETURNS trigger AS $ "
+    "BEGIN RAISE EXCEPTION 'append-only table'; END; $ LANGUAGE plpgsql"
+)
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -397,11 +404,135 @@ class Payment(Base):
     provider: Mapped[str] = mapped_column(String(24), nullable=False)
     provider_reference: Mapped[str | None] = mapped_column(String(64))
     description: Mapped[str | None] = mapped_column(String(200))
+    # Client-supplied Idempotency-Key: the same key from the same payer always returns the same payment.
+    idempotency_key: Mapped[str | None] = mapped_column(String(80))
     created_at: Mapped[datetime] = _created_at()
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     job: Mapped[Job] = relationship(back_populates="payments")
     payer: Mapped[User] = relationship()
+
+
+Index(
+    "uq_payments_idempotency", Payment.payer_id, Payment.idempotency_key, unique=True,
+    postgresql_where=text("idempotency_key IS NOT NULL"), sqlite_where=text("idempotency_key IS NOT NULL"),
+)
+
+
+# --------------------------------------------------------------------------- K2. ledger, payouts, webhooks, audit
+class LedgerAccount(str, enum.Enum):
+    COLLECTION = "collection"                  # money held in ACbridge's collection account at the provider
+    PLATFORM_REVENUE = "platform_revenue"      # commission earned by ACbridge
+    ARTISAN_PENDING = "artisan_pending"        # owed to artisans, waiting for job completion
+    ARTISAN_PAID = "artisan_paid"              # cumulative amounts disbursed to artisans
+    REFUND_PAYABLE = "refund_payable"          # owed back to customers (a refund REQUEST is recorded only)
+
+
+class PayoutStatus(str, enum.Enum):
+    PENDING = "PENDING"      # created when the customer's payment succeeds
+    RELEASED = "RELEASED"    # job completed and no open dispute: the disbursement is authorised
+    HELD = "HELD"            # stopped by a dispute or by an operator
+    PAID = "PAID"            # the provider confirmed the disbursement
+    FAILED = "FAILED"        # voided (the escrow was refunded) or the disbursement failed
+
+
+class LedgerEntry(Base):
+    """One line of a double-entry transaction. Every tx_key balances: total DEBIT = total CREDIT.
+    Append-only (the database refuses UPDATE and DELETE). Amounts are whole FCFA."""
+
+    __tablename__ = "ledger_entries"
+    __table_args__ = (
+        CheckConstraint(_in("account", LedgerAccount), name="account_valid"),
+        CheckConstraint("direction IN ('DEBIT', 'CREDIT')", name="direction_valid"),
+        CheckConstraint("amount > 0", name="amount_positive"),
+        # Replaying the same event can never post the same line twice.
+        UniqueConstraint("tx_key", "account", "direction", name="uq_ledger_tx_line"),
+        Index("ix_ledger_entries_payment_id", "payment_id"),
+    )
+
+    entry_id: Mapped[uuid.UUID] = _uuid_pk()
+    tx_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("payments.payment_id"))
+    payout_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("payouts.payout_id"))
+    account: Mapped[str] = mapped_column(String(20), nullable=False)
+    direction: Mapped[str] = mapped_column(String(6), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
+
+
+class Payout(Base):
+    """The artisan's share of a paid job. One per job."""
+
+    __tablename__ = "payouts"
+    __table_args__ = (
+        CheckConstraint(_in("status", PayoutStatus), name="status_valid"),
+        CheckConstraint("amount > 0", name="amount_positive"),
+        CheckConstraint("commission >= 0", name="commission_non_negative"),
+        UniqueConstraint("job_id", name="uq_payouts_job_id"),
+        Index("ix_payouts_status", "status"),
+    )
+
+    payout_id: Mapped[uuid.UUID] = _uuid_pk()
+    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.job_id"), nullable=False)
+    artisan_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("artisan_profiles.artisan_id"), nullable=False)
+    payment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("payments.payment_id"), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)       # what the artisan receives
+    commission: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")  # cut from the payment
+    status: Mapped[str] = mapped_column(
+        String(10), nullable=False, default=PayoutStatus.PENDING.value, server_default=PayoutStatus.PENDING.value
+    )
+    provider_reference: Mapped[str | None] = mapped_column(String(64))
+    note: Mapped[str | None] = mapped_column(String(300))               # last hold/release reason
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow,
+                                                 server_default=func.now(), nullable=False)
+
+    job: Mapped[Job] = relationship()
+    artisan: Mapped[ArtisanProfile] = relationship()
+    payment: Mapped[Payment] = relationship()
+
+
+class WebhookEvent(Base):
+    """Every provider callback we accepted, by the provider's event id: a replay is recognised and ignored."""
+
+    __tablename__ = "webhook_events"
+    __table_args__ = (UniqueConstraint("provider", "event_id", name="uq_webhook_provider_event"),)
+
+    webhook_id: Mapped[uuid.UUID] = _uuid_pk()
+    provider: Mapped[str] = mapped_column(String(24), nullable=False)
+    event_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    received_at: Mapped[datetime] = _created_at()
+
+
+class AuditLog(Base):
+    """Append-only trail of money events and operator actions. Stores a HASH of the payload, never the raw payload."""
+
+    __tablename__ = "audit_log"
+    __table_args__ = (Index("ix_audit_log_target", "target"),)
+
+    audit_id: Mapped[uuid.UUID] = _uuid_pk()
+    actor_type: Mapped[str] = mapped_column(String(12), nullable=False)    # USER, OPERATOR, PROVIDER or SYSTEM
+    actor_id: Mapped[str | None] = mapped_column(String(40))
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    target: Mapped[str] = mapped_column(String(80), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    timestamp: Mapped[datetime] = _created_at()
+
+
+for _table in (LedgerEntry.__table__, AuditLog.__table__):   # money history is tamper-proof, like job_events
+    event.listen(_table, "after_create", DDL(_PG_BLOCK_FN).execute_if(dialect="postgresql"))
+    for _op in ("UPDATE", "DELETE"):
+        event.listen(
+            _table, "after_create",
+            DDL(f"CREATE TRIGGER trg_{_table.name}_no_{_op.lower()} BEFORE {_op} ON {_table.name} "
+                f"BEGIN SELECT RAISE(ABORT, '{_table.name} is append-only'); END").execute_if(dialect="sqlite"),
+        )
+        event.listen(
+            _table, "after_create",
+            DDL(f"CREATE TRIGGER trg_{_table.name}_no_{_op.lower()} BEFORE {_op} ON {_table.name} "
+                f"FOR EACH ROW EXECUTE FUNCTION acbridge_block_job_event_changes()").execute_if(dialect="postgresql"),
+        )
 
 
 # --------------------------------------------------------------------------- L. hardship_claims
@@ -504,6 +635,7 @@ class JobMessage(Base):
     created_at: Mapped[datetime] = _created_at()
 
 
+event.listen(JobMessage.__table__, "after_create", DDL(_PG_BLOCK_FN).execute_if(dialect="postgresql"))
 for _op in ("UPDATE", "DELETE"):  # chat history is evidence in a dispute: the DATABASE refuses edits and deletes
     event.listen(
         JobMessage.__table__,

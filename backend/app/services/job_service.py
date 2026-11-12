@@ -139,6 +139,18 @@ def _start_probation(job: Job) -> datetime:
     return job.probation_ends_at
 
 
+def split_model() -> bool:
+    """True when the customer pays the commission as part of the price (see config.commission_model)."""
+    return get_settings().commission_model == "customer_split"
+
+
+def _require_quote_not_expired(job: Job) -> None:
+    """A proposed price is only valid for quote_ttl_hours. Once the artisan has agreed, the price is frozen."""
+    ttl = get_settings().quote_ttl_hours
+    if ttl > 0 and not job.artisan_agreed and _now() > _aware(job.created_at) + timedelta(hours=ttl):
+        raise ConflictError(f"This price proposal expired after {ttl} hours: ask for a new one")
+
+
 def _require_probation_over(job: Job) -> None:
     if probation_active(job):
         raise ConflictError(
@@ -201,6 +213,7 @@ def accept_job(db: Session, user: User, job_id: uuid.UUID) -> Job:
     if job.status != S.REQUESTED.value:
         raise ConflictError(f"A {job.status} job cannot be accepted")
     _require_artisan_in_good_standing(job)
+    _require_quote_not_expired(job)
 
     if job.pricing_mode == PricingMode.FIXED_PRICE.value:
         if not job.artisan_agreed:
@@ -233,6 +246,12 @@ def confirm_terms(db: Session, user: User, job_id: uuid.UUID) -> Job:
         raise ConflictError("Agree to the customer's price first (accept the job)")
     _require_probation_over(job)
     _require_artisan_in_good_standing(job)
+    if split_model():
+        # Customer-split model: the artisan pays nothing up front; the commission is cut from the customer's payment.
+        _record(db, job, user, "TERMS_CONFIRMED_BY_ARTISAN", {"fee": 0, "commission_model": "customer_split"})
+        _transition(db, job, S.ACCEPTED.value, user, "JOB_ACCEPTED", {"commission_model": "customer_split"})
+        db.commit()
+        return job
     first_time = payment_service.active_payment(job, PaymentType.COMMISSION.value) is None
     fee = payment_service.compute_commission(job.agreed_price)
     payment_service.initiate(db, job, user, PaymentType.COMMISSION.value, fee,
@@ -283,10 +302,19 @@ def settle_payment(db: Session, payment_id: uuid.UUID, succeeded: bool, actor: U
     return job
 
 
-def pay_job(db: Session, user: User, job_id: uuid.UUID):
-    """Customer pays the agreed price into escrow."""
+def pay_job(db: Session, user: User, job_id: uuid.UUID, idempotency_key: str | None = None):
+    """Customer pays the agreed price into escrow. The amount always comes from the job in the database, never the request.
+    The same Idempotency-Key from the same customer returns the original payment instead of creating another."""
     job = _lock_job(db, job_id)
     _require_party(job, user, "CUSTOMER")
+    if idempotency_key:
+        from app.models import Payment
+        previous = db.scalar(select(Payment).where(Payment.payer_id == user.user_id,
+                                                   Payment.idempotency_key == idempotency_key))
+        if previous is not None:
+            if previous.job_id != job.job_id:
+                raise ConflictError("This Idempotency-Key was already used for a different job")
+            return previous
     if job.status != S.ACCEPTED.value:
         raise ConflictError("You can pay once the artisan has accepted the job (and before work starts)")
     if job.agreed_price is None:
@@ -295,6 +323,8 @@ def pay_job(db: Session, user: User, job_id: uuid.UUID):
     payment = payment_service.initiate(
         db, job, user, PaymentType.JOB_PAYMENT.value, job.agreed_price, "Customer payment held in escrow"
     )
+    if idempotency_key and payment.idempotency_key is None:
+        payment.idempotency_key = idempotency_key
     db.commit()
     return payment
 
@@ -391,6 +421,8 @@ def open_dispute(db: Session, user: User, job_id: uuid.UUID, reason: str) -> Job
     if party is None:
         raise PermissionDeniedError("You are not a party to this job")
     _transition(db, job, S.DISPUTED.value, user, "JOB_DISPUTED", {"by": party, "reason": reason})
+    from app.services import payout_service
+    payout_service.hold_for_dispute(db, job, user, reason)   # money never moves while a dispute is open
     db.commit()
     return job
 
@@ -405,6 +437,8 @@ def resolve_dispute(db: Session, admin: User, job_id: uuid.UUID, outcome: str, n
         # Work resumes; earlier confirmations are discarded so completion must be re-confirmed by both.
         job.customer_confirmed = False
         job.artisan_confirmed = False
+        from app.services import payout_service
+        payout_service.resume_after_dispute(db, job, admin)
     _transition(db, job, outcome, admin, "DISPUTE_RESOLVED", {"notes": notes})
     if outcome == S.CANCELLED.value:
         payment_service.close_open_payments(db, job, admin, notes)
@@ -423,10 +457,17 @@ def cancel_for_hardship(db: Session, admin: User, job_id: uuid.UUID, claim_id: u
     return job
 
 
+def job_is_paid(job: Job) -> bool:
+    payment = payment_service.active_payment(job, PaymentType.JOB_PAYMENT.value)
+    return payment is not None and payment.status in (PaymentStatus.SUCCEEDED.value, PaymentStatus.RELEASED.value)
+
+
 def counterpart_phone(job: Job, user: User) -> str | None:
     """Phone numbers are shared only between the two parties, and only once the job is accepted."""
     if job.status in (S.REQUESTED.value, S.CANCELLED.value):
         return None
+    if split_model() and not job_is_paid(job):
+        return None   # contact details stay hidden until the customer's payment has succeeded
     party = party_of(job, user)
     if party == "CUSTOMER":
         return job.artisan.user.phone

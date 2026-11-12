@@ -94,19 +94,31 @@ def mark_settled(db: Session, payment: Payment, succeeded: bool, actor: User) ->
     payment.settled_at = datetime.now(timezone.utc)
     _event(db, payment.job_id, actor.user_id, "PAYMENT_SUCCEEDED" if succeeded else "PAYMENT_FAILED",
            {"payment_id": str(payment.payment_id), "type": payment.payment_type, "amount": payment.amount})
+    from app.services import audit_service, ledger_service   # imported here: they import this module too
+    audit_service.record(db, "PROVIDER", None, "PAYMENT_SUCCEEDED" if succeeded else "PAYMENT_FAILED",
+                         f"payment:{payment.payment_id}", {"type": payment.payment_type, "amount": payment.amount})
+    if succeeded:
+        ledger_service.on_payment_succeeded(db, payment)   # books the money; a customer payment also creates the payout
     return True
 
 
 def release_escrow(db: Session, job: Job, actor: User) -> None:
-    """Job completed: pay the escrow out to the artisan."""
+    """Job completed: the artisan's payout is released and paid (unless it is held), see payout_service."""
     payment = active_payment(job, PaymentType.JOB_PAYMENT.value)
     if payment is None or payment.status != PaymentStatus.SUCCEEDED.value:
         return
-    reference = get_provider().payout(payment.payment_id, payment.amount)
-    payment.status = PaymentStatus.RELEASED.value
-    _event(db, job.job_id, actor.user_id, "PAYOUT_RELEASED",
-           {"payment_id": str(payment.payment_id), "amount": payment.amount, "reference": reference,
-            "simulated": get_settings().payment_provider == "simulated"})
+    from app.services import payout_service
+    payout_service.release_for_completed_job(db, job, actor)
+
+
+def _book_refund(db: Session, job: Job, payment: Payment, actor: User, reason: str) -> None:
+    """Ledger + payout + audit for a refund REQUEST (the sandbox provider call has already been simulated)."""
+    from app.services import audit_service, ledger_service, payout_service
+    ledger_service.on_refund(db, payment)
+    if payment.payment_type == PaymentType.JOB_PAYMENT.value:
+        payout_service.void_after_refund(db, job, actor, reason)
+    audit_service.record(db, "USER", actor.user_id, "REFUND_RECORDED", f"payment:{payment.payment_id}",
+                         {"type": payment.payment_type, "amount": payment.amount, "reason": reason})
 
 
 def close_open_payments(db: Session, job: Job, actor: User, reason: str) -> None:
@@ -119,6 +131,7 @@ def close_open_payments(db: Session, job: Job, actor: User, reason: str) -> None
             _event(db, job.job_id, actor.user_id, "ESCROW_REFUNDED",
                    {"payment_id": str(payment.payment_id), "amount": payment.amount, "reference": reference,
                     "reason": reason})
+            _book_refund(db, job, payment, actor, reason)
         elif payment.status == PaymentStatus.PENDING.value:
             payment.status = PaymentStatus.FAILED.value
             payment.settled_at = datetime.now(timezone.utc)
@@ -138,6 +151,7 @@ def refund_all(db: Session, job: Job, actor: User, reason: str) -> None:
             _event(db, job.job_id, actor.user_id, kind,
                    {"payment_id": str(payment.payment_id), "amount": payment.amount, "reference": reference,
                     "reason": reason})
+            _book_refund(db, job, payment, actor, reason)
         elif payment.status == PaymentStatus.PENDING.value:
             payment.status = PaymentStatus.FAILED.value
             payment.settled_at = datetime.now(timezone.utc)

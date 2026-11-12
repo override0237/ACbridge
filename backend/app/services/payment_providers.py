@@ -34,6 +34,13 @@ class SimulatedProvider:
         return f"SIM-REFUND-{payment_id.hex[:12]}"
 
 
+def sign_webhook(body: bytes) -> str:
+    """Hex HMAC-SHA256 of the raw request body with WEBHOOK_SECRET: what a provider sends in the X-Signature header."""
+    import hashlib
+    import hmac
+    return hmac.new(get_settings().webhook_secret.encode(), body, hashlib.sha256).hexdigest()
+
+
 def get_provider() -> PaymentProvider:
     if get_settings().payment_provider == "simulated":
         return SimulatedProvider()
