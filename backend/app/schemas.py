@@ -470,8 +470,8 @@ class AuditLogOut(ORM):
 
 # ------------------------------------------------------------------ job chat
 class ChatMessageIn(BaseModel):
-    body: str = Field(min_length=1, max_length=500, description="Free text. End it with an amount and currency, "
-                      "e.g. '9000 FCFA', to propose that price (customer only).")
+    body: str = Field(min_length=1, max_length=500, description="Free text. The ARTISAN ends a message with an amount and currency, "
+                      "e.g. '9000 FCFA', to state the final price. A customer's amount is only bargaining.")
 
 
 class ChatMessageOut(BaseModel):
@@ -489,7 +489,7 @@ class ChatSendOut(BaseModel):
     message: ChatMessageOut
     price_status: str = Field(
         description="NONE (no amount found), APPLIED, OUT_OF_RANGE, LOCKED (artisan already agreed / not REQUESTED), "
-                    "NOT_APPLICABLE (inspection job) or NOT_CUSTOMER (only the customer sets the price)")
+                    "NOT_APPLICABLE (inspection job) or NOT_ARTISAN (only the artisan states the final price; the customer bargains)")
 
 
 # ------------------------------------------------------------------ reviews
