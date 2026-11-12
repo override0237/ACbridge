@@ -45,6 +45,24 @@ class Settings(BaseSettings):
     # escrow can be paid until it ends. 0 disables it (used by the automated tests).
     probation_hours: int = 24
 
+    # WHO PAYS THE COMMISSION, AND WHEN.
+    #   artisan_upfront : (default) the artisan pays the commission before the job is assigned (see job_service).
+    #   customer_split  : the customer pays the full agreed price; the commission is cut from that payment and booked as
+    #                     platform revenue the moment it succeeds, the rest waits as the artisan's pending payout until the
+    #                     job is completed. The artisan pays nothing up front; contact details unlock after payment.
+    commission_model: str = "artisan_upfront"
+
+    # Dispute window after completion (hours) and how long a proposed price stays valid (0 = never expires).
+    dispute_window_hours: int = 48
+    quote_ttl_hours: int = 24
+
+    # Shared secret used to sign payment-provider webhooks (HMAC-SHA256 of the raw body, hex, header X-Signature).
+    webhook_secret: str = "dev-only-webhook-secret-change-me"
+
+    # Per-phone limit on starting payments.
+    pay_rate_limit_calls: int = 5
+    pay_rate_limit_window_seconds: int = 600
+
     # Only "simulated" exists: no real money moves. Real MTN MoMo / Orange Money needs provider accounts.
     payment_provider: str = "simulated"
 
@@ -63,6 +81,10 @@ class Settings(BaseSettings):
     def _refuse_insecure_secret_in_production(self) -> "Settings":
         if self.environment.lower() == "production" and self.jwt_secret == _INSECURE_DEFAULT_SECRET:
             raise ValueError("JWT_SECRET must be set to a strong random value in production")
+        if self.environment.lower() == "production" and self.webhook_secret == "dev-only-webhook-secret-change-me":
+            raise ValueError("WEBHOOK_SECRET must be set to a strong random value in production")
+        if self.commission_model not in ("artisan_upfront", "customer_split"):
+            raise ValueError("COMMISSION_MODEL must be 'artisan_upfront' or 'customer_split'")
         if self.environment.lower() == "production" and self.payment_provider == "simulated":
             raise ValueError("The simulated payment provider moves no real money and cannot run in production")
         return self

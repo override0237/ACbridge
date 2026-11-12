@@ -18,6 +18,22 @@ def reset_rate_limits() -> None:
     _hits.clear()
 
 
+def check(key: str, max_calls: int, window_seconds: int) -> None:
+    """Count one hit for an arbitrary key (for example a phone number) and raise 429 when the limit is exceeded."""
+    if not get_settings().rate_limit_enabled:
+        return
+    now = time.monotonic()
+    window = _hits[key]
+    while window and now - window[0] > window_seconds:
+        window.popleft()
+    if len(window) >= max_calls:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Please wait a moment and try again.",
+            headers={"Retry-After": str(window_seconds)},
+        )
+    window.append(now)
+
+
 def rate_limit(name: str, max_calls: int, window_seconds: int):
     def dependency(request: Request) -> None:
         if not get_settings().rate_limit_enabled:

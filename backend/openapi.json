@@ -279,6 +279,58 @@
         "title": "ArtisanSkillOut",
         "type": "object"
       },
+      "AuditLogOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "audit_id": {
+            "format": "uuid",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "payload_hash": {
+            "title": "Payload Hash",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audit_id",
+          "actor_type",
+          "actor_id",
+          "action",
+          "target",
+          "payload_hash",
+          "timestamp"
+        ],
+        "title": "AuditLogOut",
+        "type": "object"
+      },
       "Body_upload_document_hardship_claims__claim_id__document_post": {
         "properties": {
           "file": {
@@ -998,6 +1050,111 @@
         "title": "JobOut",
         "type": "object"
       },
+      "LedgerEntryOut": {
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "payment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Id"
+          },
+          "payout_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payout Id"
+          },
+          "tx_key": {
+            "title": "Tx Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id",
+          "tx_key",
+          "payment_id",
+          "payout_id",
+          "account",
+          "direction",
+          "amount",
+          "created_at"
+        ],
+        "title": "LedgerEntryOut",
+        "type": "object"
+      },
+      "LedgerOut": {
+        "properties": {
+          "balanced": {
+            "description": "False if any transaction has debits different from credits",
+            "title": "Balanced",
+            "type": "boolean"
+          },
+          "balances": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "collection, platform_revenue, artisan_pending, artisan_paid, refund_payable",
+            "title": "Balances",
+            "type": "object"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "unbalanced_transactions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unbalanced Transactions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "balances",
+          "balanced",
+          "unbalanced_transactions",
+          "entries"
+        ],
+        "title": "LedgerOut",
+        "type": "object"
+      },
       "LoginIn": {
         "properties": {
           "password": {
@@ -1144,6 +1301,87 @@
         "title": "MatchesOut",
         "type": "object"
       },
+      "OperatorPaymentOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "payer_phone_masked": {
+            "title": "Payer Phone Masked",
+            "type": "string"
+          },
+          "payment_id": {
+            "format": "uuid",
+            "title": "Payment Id",
+            "type": "string"
+          },
+          "payment_type": {
+            "title": "Payment Type",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Reference"
+          },
+          "settled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settled At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payment_id",
+          "job_id",
+          "payment_type",
+          "amount",
+          "currency",
+          "status",
+          "provider",
+          "provider_reference",
+          "created_at",
+          "settled_at",
+          "payer_phone_masked"
+        ],
+        "title": "OperatorPaymentOut",
+        "type": "object"
+      },
       "PaymentOut": {
         "properties": {
           "amount": {
@@ -1228,6 +1466,94 @@
           "notice"
         ],
         "title": "PaymentOut",
+        "type": "object"
+      },
+      "PayoutOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "artisan_id": {
+            "format": "uuid",
+            "title": "Artisan Id",
+            "type": "string"
+          },
+          "artisan_name": {
+            "title": "Artisan Name",
+            "type": "string"
+          },
+          "commission": {
+            "title": "Commission",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "payment_id": {
+            "format": "uuid",
+            "title": "Payment Id",
+            "type": "string"
+          },
+          "payout_id": {
+            "format": "uuid",
+            "title": "Payout Id",
+            "type": "string"
+          },
+          "provider_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Reference"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payout_id",
+          "job_id",
+          "artisan_id",
+          "artisan_name",
+          "payment_id",
+          "amount",
+          "commission",
+          "status",
+          "provider_reference",
+          "note",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PayoutOut",
         "type": "object"
       },
       "PricingPolicyOut": {
@@ -1320,6 +1646,80 @@
           "approve"
         ],
         "title": "QuoteResponseIn",
+        "type": "object"
+      },
+      "ReasonIn": {
+        "properties": {
+          "reason": {
+            "description": "Why (written to the audit log)",
+            "maxLength": 300,
+            "minLength": 5,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonIn",
+        "type": "object"
+      },
+      "ReconciliationOut": {
+        "properties": {
+          "completed_jobs_without_payment": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Completed Jobs Without Payment",
+            "type": "array"
+          },
+          "differences": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Differences",
+            "type": "object"
+          },
+          "ledger": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Ledger",
+            "type": "object"
+          },
+          "mismatch": {
+            "title": "Mismatch",
+            "type": "boolean"
+          },
+          "provider": {
+            "additionalProperties": true,
+            "title": "Provider",
+            "type": "object"
+          },
+          "status": {
+            "description": "OK or MISMATCH",
+            "title": "Status",
+            "type": "string"
+          },
+          "unbalanced_transactions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unbalanced Transactions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ledger",
+          "provider",
+          "differences",
+          "unbalanced_transactions",
+          "mismatch",
+          "status",
+          "completed_jobs_without_payment"
+        ],
+        "title": "ReconciliationOut",
         "type": "object"
       },
       "RegisterIn": {
@@ -3455,7 +3855,7 @@
     },
     "/jobs/{job_id}/pay": {
       "post": {
-        "description": "Customer starts the escrow payment of the agreed price. Approve it with the payment endpoints.",
+        "description": "Customer starts the payment of the agreed price (the amount comes from the server, never the request).\nSend an `Idempotency-Key` header: repeating it returns the same payment. Limited per phone number.",
         "operationId": "pay_jobs__job_id__pay_post",
         "parameters": [
           {
@@ -3466,6 +3866,23 @@
               "format": "uuid",
               "title": "Job Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],
@@ -3837,6 +4254,369 @@
         "summary": "Get Matches",
         "tags": [
           "matching"
+        ]
+      }
+    },
+    "/operator/audit": {
+      "get": {
+        "operationId": "audit_operator_audit_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditLogOut"
+                  },
+                  "title": "Response Audit Operator Audit Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Audit",
+        "tags": [
+          "operator payments"
+        ]
+      }
+    },
+    "/operator/ledger": {
+      "get": {
+        "operationId": "ledger_operator_ledger_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ledger",
+        "tags": [
+          "operator payments"
+        ]
+      }
+    },
+    "/operator/payments": {
+      "get": {
+        "operationId": "payments_operator_payments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperatorPaymentOut"
+                  },
+                  "title": "Response Payments Operator Payments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Payments",
+        "tags": [
+          "operator payments"
+        ]
+      }
+    },
+    "/operator/payouts": {
+      "get": {
+        "operationId": "payouts_operator_payouts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PayoutOut"
+                  },
+                  "title": "Response Payouts Operator Payouts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Payouts",
+        "tags": [
+          "operator payments"
+        ]
+      }
+    },
+    "/operator/payouts/{payout_id}/hold": {
+      "post": {
+        "description": "Stop a payout. A reason is required and the action is written to the audit log.",
+        "operationId": "hold_operator_payouts__payout_id__hold_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payout_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Hold",
+        "tags": [
+          "operator payments"
+        ]
+      }
+    },
+    "/operator/payouts/{payout_id}/release": {
+      "post": {
+        "description": "Release a held payout after the job is complete and not disputed. A reason is required and audited.",
+        "operationId": "release_operator_payouts__payout_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payout_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Release",
+        "tags": [
+          "operator payments"
+        ]
+      }
+    },
+    "/operator/reconciliation": {
+      "get": {
+        "operationId": "reconciliation_operator_reconciliation_get",
+        "parameters": [
+          {
+            "description": "SANDBOX ONLY: pretend the provider reports this total",
+            "in": "query",
+            "name": "provider_collected_override",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "SANDBOX ONLY: pretend the provider reports this total",
+              "title": "Provider Collected Override"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reconciliation",
+        "tags": [
+          "operator payments"
         ]
       }
     },
@@ -4510,6 +5290,51 @@
         "summary": "Upload Evidence",
         "tags": [
           "verification"
+        ]
+      }
+    },
+    "/webhooks/payments/{provider}": {
+      "post": {
+        "description": "Provider callback. The HMAC-SHA256 signature of the RAW body (header X-Signature) is checked BEFORE the body is\nread; a missing or wrong signature returns 401 and changes nothing. Events are idempotent by event_id, and the\npayment status and ledger are written in one transaction.\n\nBody: {\"event_id\": \"...\", \"provider_reference\": \"...\", \"status\": \"SUCCEEDED\" | \"FAILED\"}",
+        "operationId": "payment_webhook_webhooks_payments__provider__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Payment Webhook Webhooks Payments  Provider  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Payment Webhook",
+        "tags": [
+          "payments"
         ]
       }
     }

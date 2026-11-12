@@ -347,3 +347,7 @@ The customer and artisan of a job can talk in the app and bargain; the final pri
   Inspection jobs (`INSPECTION_REQUIRED`) take their price from the artisan's quote, so the chat does not set it.
 - Phone numbers (9+ digits or `+CC...`) are replaced by `[number hidden]` so the deal stays on the platform.
 - The chat closes when the job is `COMPLETED` or `CANCELLED`. Messages are append-only (database triggers refuse UPDATE/DELETE).
+
+## Secure payments (ledger, payouts, webhooks, reconciliation)
+
+See [PAYMENTS.md](PAYMENTS.md) for the sandbox payments module and [PROVIDER_SETUP.md](PROVIDER_SETUP.md) for what is needed before going live.
