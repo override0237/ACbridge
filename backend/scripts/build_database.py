@@ -111,9 +111,10 @@ grace, paul, peter = login(GRACE), login(PAUL), login(PETER)
 # S1: a complete, paid, confirmed and reviewed plumbing job (bargained in the chat)
 r1 = customer_request(mary, "Plumbing", "The kitchen tap is leaking", "Molyko, Buea", 8000, "TODAY")
 j1 = offer(mary, r1, "Grace", 5500)
-say(mary, j1, "Hello Grace, can you do it cheaper?")
-say(grace, j1, "I can do it for 7 000 FCFA")
-say(mary, j1, "Final price: 6000 FCFA")
+say(mary, j1, "Hello Grace, can you do it cheaper? I can pay 4 000 FCFA")   # the customer bargains (an amount here is only an offer)
+say(grace, j1, "I can do it for 7 000 FCFA")                             # the ARTISAN states prices; the last one is the final price
+say(mary, j1, "That is still a lot, could you do 5 000?")
+say(grace, j1, "OK, my final price is 6000 FCFA")
 agree_and_pay(mary, grace, j1)
 finish(mary, grace, j1)
 call("POST", f"/jobs/{j1}/reviews", mary, json={"rating": 5, "comment": "Fixed quickly, fair price."})
@@ -121,7 +122,8 @@ call("POST", f"/jobs/{j1}/reviews", mary, json={"rating": 5, "comment": "Fixed q
 # S2: paid and in progress (the artisan's share waits as a PENDING payout)
 r2 = customer_request(joseph, "Electrical Repair", "Sockets sparking in the living room", "Small Soppo, Buea", 15000, "THIS_WEEK")
 j2 = offer(joseph, r2, "Paul", 9000)
-say(joseph, j2, "Can you come tomorrow? 12000 FCFA")
+say(joseph, j2, "Can you come tomorrow?")
+say(paul, j2, "Yes. My final price is 12000 FCFA")
 agree_and_pay(joseph, paul, j2)
 call("POST", f"/jobs/{j2}/start", paul)
 
@@ -149,7 +151,7 @@ call("GET", f"/jobs/{j5}", joseph)                    # reading an overdue offer
 r6 = customer_request(aline, "Electrical Repair", "Install two ceiling lights", "Molyko, Buea", 10000, "NOT_URGENT")
 j6 = offer(aline, r6, "Paul", 6000)
 say(aline, j6, "Hello, are you available this month?")
-say(paul, j6, "Yes. I would charge 9 000 FCFA")
+say(paul, j6, "Yes. My final price is 9 000 FCFA")
 
 # S7: a new artisan registers, adds a skill and collects endorsements; the skill check is waiting for the verifier
 john = register("+237670777999", "ARTISAN")

@@ -72,7 +72,7 @@ Passwords are stored only as Argon2id hashes (`users.password_hash`); `browse.ht
 
 Built by playing complete stories through the real API (`backend/scripts/build_database.py`):
 
-- **Grace (plumber), customer Mary:** bargained in the chat to 6,000 FCFA, paid, finished, payout PAID, rated 5.
+- **Grace (plumber), customer Mary:** bargained in the chat (the artisan stated the final 6,000 FCFA), paid, finished, payout PAID, rated 5.
 - **Paul (electrician), customer Joseph:** paid 12,000 FCFA, work in progress, payout PENDING.
 - **Ngu Peter (electrician), customer Aline:** paid 8,000 FCFA, work finished but the **operator held the payout** with a reason.
 - **An expired offer:** an urgent plumbing request the artisan did not accept within the hour (job CANCELLED, event `JOB_OFFER_EXPIRED`).

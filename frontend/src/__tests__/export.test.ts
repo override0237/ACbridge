@@ -17,7 +17,7 @@ function journey(): State {
   let s = initialState();
   s = reducer(s, { type: 'request', request: { id: 'rq', customerPhone: '+237690000030', customerName: 'Mary', trade: 'plumbing', neighbourhood: 'Neighbourhood A', urgency: 'today', description: 'Leaking tap', at } });
   s = reducer(s, { type: 'choose', jobId: 'job', requestId: 'rq', artisanId: 'seed-1', price: 6000, at, ids: ids(1) });
-  s = reducer(s, { type: 'chat', id: 'm1', sysId: 's1', jobId: 'job', from: 'customer', text: 'Final price: 6000 FCFA', at, ids: ids(2) });
+  s = reducer(s, { type: 'chat', id: 'm1', sysId: 's1', jobId: 'job', from: 'artisan', text: 'Final price: 6000 FCFA', at, ids: ids(2) });
   s = reducer(s, { type: 'answer', jobId: 'job', accept: true, at, ids: ids(3) });
   s = reducer(s, { type: 'payStart', id: 'p1', jobId: 'job', method: 'mtn', phone: '+237670123456', ref: 'SIM-1', at, ids: ids(1) });
   return reducer(s, { type: 'paySettle', id: 'p1', ok: true, code: generateJobCode(), at, ids: ids(4) });

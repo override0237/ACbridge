@@ -44,7 +44,7 @@ export function Chat() {
       bare_number: { tone: 'warn', key: 'chat.noCurrency' },
       out_of_range: { tone: 'bad', key: 'chat.outOfRange', params: { min: money(MIN_PRICE, state.lang), max: money(MAX_PRICE, state.lang) } },
       locked: { tone: 'warn', key: 'chat.locked' },
-      not_customer: { tone: 'warn', key: 'chat.notCustomer' },
+      not_artisan: { tone: 'warn', key: 'chat.notArtisan' },
       none: null,
     };
     setFeedback(map[r.price]);

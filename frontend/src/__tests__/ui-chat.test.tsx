@@ -19,8 +19,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-describe('Connect flexibly: bargaining in the chat fixes the price and the commission', () => {
-  it('customer and artisan talk, the customer writes 9 000 FCFA, the artisan says YES, the customer pays, the job completes with 5% = 450', async () => {
+describe('Connect flexibly: the customer bargains and the ARTISAN states the final price', () => {
+  it('the customer bargains (amounts do not count), the artisan writes 9 000 FCFA, says YES, the customer pays, the job completes with 5% = 450', async () => {
     const u = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<App />);
 
@@ -44,43 +44,50 @@ describe('Connect flexibly: bargaining in the chat fixes the price and the commi
     await u.click(joel.querySelector('button')!); // Choisir
     await u.click(Array.from(joel.querySelectorAll('button')).find((b) => /Confirmer/.test(b.textContent ?? ''))!);
 
-    // customer opens the chat and bargains
+    // customer opens the chat and bargains: his amount does NOT fix the price
     await u.click(btn(/Échanger/));
     expect(screen.getByText(/Prix estimé \(pas encore convenu\)/)).toBeTruthy();
+    expect(screen.getByText(/Seul l'artisan indique le prix final/)).toBeTruthy();   // the customer is told how it works
     await u.type(screen.getByLabelText('Votre message'), "Bonjour, c'est trop cher pour moi");
     await u.click(btn(/Envoyer/));
     expect(chatText()).toContain("c'est trop cher pour moi");
+    await u.type(screen.getByLabelText('Votre message'), 'Je propose 3 000 FCFA');
+    await u.click(btn(/Envoyer/));
+    expect(screen.getByRole('alert').textContent).toContain("Seul l'artisan peut indiquer le prix final");
+    expect(screen.getByText(/Prix estimé \(pas encore convenu\)/)).toBeTruthy();       // still just the estimate
+    expect(chatText()).not.toContain('Commission 5%');
 
-    // a number without the currency fixes nothing and reminds the customer
+    // the artisan (logged in as Joel) answers in the same chat
+    await u.click(btn(/Retour/));
+    await u.click(btn(/Ouvrir en artisan/));
+    await u.click(btn(/Discuter/));
+    expect(chatText()).toContain('Je propose 3 000 FCFA');
+    expect(screen.getByText(/Pour indiquer le prix final, terminez votre message/)).toBeTruthy();
+
+    // a number without the currency fixes nothing and reminds the artisan
     await u.type(screen.getByLabelText('Votre message'), 'ok pour 9000');
     await u.click(btn(/Envoyer/));
     expect(screen.getByRole('alert').textContent).toContain('Ajoutez la monnaie à la fin');
     expect(screen.getByText(/Prix estimé \(pas encore convenu\)/)).toBeTruthy();
 
-    // the final amount with the currency at the end is read from the chat
-    await u.type(screen.getByLabelText('Votre message'), "C'est mon dernier prix : 9 000 FCFA");
+    // the artisan states the final price with the currency at the end: it is read from the chat
+    await u.type(screen.getByLabelText('Votre message'), "D'accord, mon dernier prix : 9 000 FCFA");
     await u.click(btn(/Envoyer/));
-    expect(screen.getByRole('alert').textContent).toContain('Prix fixé : 9');
-    expect(screen.getByText(/Prix fixé par le client, en attente de l'artisan/)).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain('Prix final fixé : 9');
+    expect(screen.getByText(/Prix final indiqué par l'artisan/, { selector: '.badge' })).toBeTruthy();
     expect(chatText()).toContain('Commission 5% = 450');
-    expect(sms()).toContain('Répondez OUI pour accepter'); // the artisan is told by SMS
+    expect(sms()).toContain('a indiqué le prix final');                                // the CUSTOMER is told by SMS
+    expect(sms()).not.toMatch(/code de travail est/);
 
-    // the artisan (logged in as Joel) answers in the same chat; his own amount changes nothing
-    await u.click(btn(/Retour/));
-    await u.click(btn(/Ouvrir en artisan/));
-    await u.click(btn(/Discuter/));
-    expect(chatText()).toContain('9 000 FCFA');
-    await u.type(screen.getByLabelText('Votre message'), 'Je préfère 12 000 FCFA');
-    await u.click(btn(/Envoyer/));
-    expect(screen.getByRole('alert').textContent).toContain('Seul le client peut fixer le prix');
-
-    // YES agrees to the customer's price: it is now locked, but there is no job code until the customer pays
+    // YES accepts the job at that price: it is now locked, but there is no job code until the customer pays
     await u.click(btn(/OUI/));
     expect(chatText()).toContain('Joel a accepté');
     expect(screen.getByText(/Prix convenu par les deux parties/)).toBeTruthy();
-    expect(sms()).not.toMatch(/code de travail est/);
+    await u.type(screen.getByLabelText('Votre message'), 'Finalement 20 000 FCFA');
+    await u.click(btn(/Envoyer/));
+    expect(screen.getByRole('alert').textContent).toContain('prix est fixé');           // even the artisan cannot change it now
 
-    // the customer pays the agreed 9 000 FCFA through the Payments tab (sandbox approves after 5 s)
+    // the customer sees the price and pays the agreed 9 000 FCFA (sandbox approves after 5 s)
     await u.click(btn(/Retour/));
     await u.click(btn('Accueil'));
     await u.click(btn(/Mon travail/));
@@ -91,17 +98,10 @@ describe('Connect flexibly: bargaining in the chat fixes the price and the commi
     await u.click(btn(/^Payer$/));
     await act(async () => { await vi.advanceTimersByTimeAsync(5200); });
     expect(screen.getByText('Paiement reçu')).toBeTruthy();
-    expect(sms()).toMatch(/Commission 5% = 450 FCFA/);                  // 5% of the AGREED 9 000, booked at payment
+    expect(sms()).toMatch(/Commission 5% = 450 FCFA/);                                  // 5% of the artisan's 9 000, booked at payment
     const code = /code de travail est (\d{6})/.exec(sms())?.[1]!;
 
-    // the chat is still open after payment but the price stays locked
-    await u.click(btn(/Retour/));
-    await u.click(btn(/Échanger/));
-    await u.type(screen.getByLabelText('Votre message'), 'Pour moi 3 000 FCFA');
-    await u.click(btn(/Envoyer/));
-    expect(screen.getByRole('alert').textContent).toContain('prix est fixé');
-
-    // finish the job with the code: the payout is the agreed price minus 5%
+    // finish the job with the code
     await u.click(btn(/Retour/));
     await u.click(btn('Accueil'));
     await u.click(btn(/Je suis artisan/));

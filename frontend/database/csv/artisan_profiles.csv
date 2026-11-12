@@ -1,8 +1,8 @@
 ﻿artisan_id,user_id,full_name,location,description,whatsapp_number,availability_status,is_suspended,created_at
-aeae790d1ff249e586504569874f9899,72469b97960a4c86b6643dc43ff2a2f1,Paul Tabi,"Molyko, Buea",SIMULATED demo artisan,+237690000011,AVAILABLE,0,2026-11-12 15:30:42.576513
-68b264f65adc4892adfcb12cfc954ce8,78b56c1145734459b2c2a5ad4432bed6,Samuel Ngwa,"Small Soppo, Buea",SIMULATED demo artisan,,AVAILABLE,0,2026-11-12 15:30:42.735539
-2ed83bebe9084a788fd04e2cd33a6f5a,490d1e3fe0f443999ea704bb09b5c3b9,Esther Mbah,"Small Soppo, Buea",SIMULATED demo artisan,,UNAVAILABLE,0,2026-11-12 15:30:42.834693
-af2b6b6ef7f549748577d29a7cc3e010,98cdcfe11a5b4c29b03279acdc3765db,Ngu Peter,"Down Beach, Limbe",SIMULATED demo artisan,,AVAILABLE,0,2026-11-12 15:30:42.960953
-e5e42f9f608f4851b373428dec5ba483,f6c9eaf0676f4ee7ad87ffc898642e35,Grace Ndifor,"Molyko, Buea",SIMULATED demo artisan,+237690000015,AVAILABLE,0,2026-11-12 15:30:43.077435
-4351ed1cebfb4c618ca2d682eacc06ec,8e208f426a1e481b8b7b057774c9610c,Mama Rose,"Great Soppo, Buea",SIMULATED demo artisan,,AVAILABLE,0,2026-11-12 15:30:43.203693
-3fc4f7511206424d8702a3a386bee843,db68983df5164e57819c2014c63fe8ae,John Fon,"Small Soppo, Buea","Plumber, 10 years' experience",,AVAILABLE,0,2026-11-12 15:30:46.550162
+81b329997f864976ac2433bb09467399,f3c440ed612d49fcb74d769046ea1dbd,Paul Tabi,"Molyko, Buea",SIMULATED demo artisan,+237690000011,AVAILABLE,0,2026-11-12 15:41:01.464348
+4019b1d4867c4db1a4892035f6764696,6763f4ae7ded4aba9b3baec5f2f4318e,Samuel Ngwa,"Small Soppo, Buea",SIMULATED demo artisan,,AVAILABLE,0,2026-11-12 15:41:01.573872
+c807b6463de34109bdeaf2bde18a3e3d,5da02977b73046f7baeae29cc2374018,Esther Mbah,"Small Soppo, Buea",SIMULATED demo artisan,,UNAVAILABLE,0,2026-11-12 15:41:01.652040
+843f1e2d65e848b2aa252cc04149ef4d,fd2c0e88bdd94023be0bc1b075ccd2de,Ngu Peter,"Down Beach, Limbe",SIMULATED demo artisan,,AVAILABLE,0,2026-11-12 15:41:01.759322
+62cf636f20514dd78d6c96e63d494fdf,126006545cdc41df8bef4133c0ba8598,Grace Ndifor,"Molyko, Buea",SIMULATED demo artisan,+237690000015,AVAILABLE,0,2026-11-12 15:41:01.865025
+4f58aac22916457ea69290487dc59c2c,82ebf3ab70fd43459dd96c3ea7102697,Mama Rose,"Great Soppo, Buea",SIMULATED demo artisan,,AVAILABLE,0,2026-11-12 15:41:01.942974
+cc91aadc4ca547259de3492139fc6c40,762deb84b9c4466892afac5d63b27fc2,John Fon,"Small Soppo, Buea","Plumber, 10 years' experience",,AVAILABLE,0,2026-11-12 15:41:04.431098

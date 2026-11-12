@@ -1,8 +1,8 @@
 ﻿skill_id,skill_name,description,safety_critical
-8aa9adfa48f74548bb1870e971dc686a,Electrical Repair,"Wiring, sockets, breakers, fault finding",1
-367938c0e51d42bb99fafc46ff76061f,Plumbing,"Pipes, taps, water heaters, drainage",0
-094067bfd7d34bf8a2af298c2cfddfc9,Carpentry,"Doors, roofs, furniture",0
-e5ae9a45693f438f81816773fe69caff,Masonry,"Walls, floors, foundations",1
-1217eb4848a845f1a6cb08c2d99f3155,Mechanics,Car and motorbike repair,0
-253ed55de0fc456882c7d0c4ddaf3484,Tailoring,Clothes making and alterations,0
-1d41923fda6e446797caf7d0f5682f53,Hairdressing,"Braiding, cutting, styling",0
+317230eca6b64cd3ada02f8bb152af25,Electrical Repair,"Wiring, sockets, breakers, fault finding",1
+7de8c8012d4243d481a2ae8a4d3edeed,Plumbing,"Pipes, taps, water heaters, drainage",0
+a4598daec7424ad09eb7f8093539ae86,Carpentry,"Doors, roofs, furniture",0
+842ad593851b487c82f50ed1b9c47dcb,Masonry,"Walls, floors, foundations",1
+5f7a01ea0c8347b79d48cc9642d3865a,Mechanics,Car and motorbike repair,0
+ce9a69d98d874c86b4420232da7b9bd0,Tailoring,Clothes making and alterations,0
+1b57de2743fb4f3b88baf1f95c924516,Hairdressing,"Braiding, cutting, styling",0

@@ -234,7 +234,7 @@ export function reducer(s: State, a: Action): State {
         ...(check.price === 'applied' ? { price: check.amount ?? undefined } : {}),
       };
       if (check.price !== 'applied' || check.amount === null) return { ...s, chats: [...s.chats, message] };
-      // The customer's amount (with its currency at the end) is the price from now on; the commission follows from it.
+      // The ARTISAN's amount (with its currency at the end) is the final price from now on; the commission follows from it.
       const tx = computeCommission(check.amount);
       const artisan = byId(s.artisans, job.artisanId);
       const req = byId(s.requests, job.requestId);
@@ -246,9 +246,8 @@ export function reducer(s: State, a: Action): State {
         ...s,
         chats: [...s.chats, message, system],
         jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, price: tx.price, priceSource: 'chat' } : j)),
-        sms: [...s.sms, sms(a.ids[0], artisan?.phone ?? '', 'sms.priceProposed', {
-          customer: req?.customerName ?? '', price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout,
-        }, a.at)],
+        // the customer is told which final price the artisan stated (the customer's consent is paying, see Payments)
+        sms: [...s.sms, sms(a.ids[0], job.customerPhone, 'sms.priceProposed', { artisan: artisan?.name ?? '', customer: req?.customerName ?? '', price: tx.price }, a.at)],
         audit: [...s.audit, audit(a.ids[1], 'price', {
           artisan: artisan?.name ?? '', price: tx.price, rate: tx.ratePercent, commission: tx.commission,
         }, a.at)],

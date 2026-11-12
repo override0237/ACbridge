@@ -1,7 +1,7 @@
 /**
- * "Connect flexibly": the customer and the artisan bargain in free text. When the CUSTOMER ends a message with an
- * amount and a currency (e.g. "ok, 9000 FCFA"), that amount becomes the job price and the commission is computed
- * from it. Pure rules, kept identical to backend/app/services/chat_service.py (same regexes and limits).
+ * "Connect flexibly": the CUSTOMER bargains and the ARTISAN states the final price. When the ARTISAN ends a message
+ * with an amount and a currency (e.g. "final price: 9000 FCFA"), that amount becomes the job price and the commission is
+ * computed from it. An amount typed by the customer is just an offer in the conversation and never changes the price. Pure rules, kept identical to backend/app/services/chat_service.py (same regexes and limits).
  */
 import type { Job } from './types';
 
@@ -29,7 +29,7 @@ export const endsWithBareNumber = (text: string): boolean => parseAmount(text) =
 export const maskContacts = (text: string): string => text.replace(PHONE, HIDDEN);
 
 export type ChatSender = 'customer' | 'artisan';
-export type PriceStatus = 'none' | 'bare_number' | 'applied' | 'out_of_range' | 'locked' | 'not_customer';
+export type PriceStatus = 'none' | 'bare_number' | 'applied' | 'out_of_range' | 'locked' | 'not_artisan';
 export type ChatCheck = { ok: true; amount: number | null; price: PriceStatus } | { ok: false; reason: 'empty' | 'too_long' | 'closed' };
 
 export const isChatOpen = (job: Job): boolean => job.status === 'REQUESTED' || job.status === 'ACCEPTED';
@@ -41,10 +41,10 @@ export function checkChatMessage(job: Job | undefined, from: ChatSender, text: s
   if (t.length > MAX_BODY) return { ok: false, reason: 'too_long' };
   if (!job || !isChatOpen(job)) return { ok: false, reason: 'closed' };
   const amount = parseAmount(t);
-  if (amount === null) return { ok: true, amount, price: endsWithBareNumber(t) && from === 'customer' ? 'bare_number' : 'none' };
-  if (from !== 'customer') return { ok: true, amount, price: 'not_customer' };
+  if (amount === null) return { ok: true, amount, price: endsWithBareNumber(t) && from === 'artisan' ? 'bare_number' : 'none' };
+  if (from !== 'artisan') return { ok: true, amount, price: 'not_artisan' }; // the customer bargains, the artisan fixes the price
   if (amount < MIN_PRICE || amount > MAX_PRICE) return { ok: true, amount, price: 'out_of_range' };
-  // The price is fixed once the artisan has said YES (the cooling-off/commitment rules start from there).
+  // The price is frozen once the artisan has said YES (the cooling-off/commitment rules start from there).
   if (job.status !== 'REQUESTED') return { ok: true, amount, price: 'locked' };
   return { ok: true, amount, price: 'applied' };
 }

@@ -72,7 +72,7 @@ Seed names and phones in `src/data/seed.ts` mirror `backend/app/seed.py` (Grace,
 2. Tap **Simulate vouch 1**: still "1 of 2". Tap **Simulate vouch 2**: **Verified**, SMS sent.
 3. Back to Home → **I need a service** → type the artisan you need (e.g. Plumber), pick urgency → **Find artisans**. The list appears instantly and only shows verified artisans of that trade; your new artisan is in it.
 4. Tap **Choose** on any artisan (e.g. yours) → **Confirm** (the price breakdown with the 5% commission is shown first).
-5. Job tracking → **Connect flexibly** to bargain (the customer ends a message with e.g. `9000 FCFA`) → **Open as artisan** → **YES**. The price is now agreed but there is **no job code yet**.
+5. Job tracking → **Connect flexibly** to bargain (the customer bargains; the artisan ends a message with the final price, e.g. `9000 FCFA`) → **Open as artisan** → **YES**. The price is now agreed but there is **no job code yet**.
 6. Home → **My job** → **Payments** → **Pay now** → MTN or Orange + a phone number → the sandbox approves after 5 seconds (number `600000000` is always declined, to show the failure screen). Only now is the **job code** sent (SMS panel, to the customer) and the artisan's phone shown.
 7. Artisan → **Job inbox** → **Finish job** → type a wrong code (error, nothing happens) → type the right code → completed and the payout is paid.
 8. Tracking → **Rate job** → pick stars → **Send rating** → "Thank you. Your rating is recorded." Rating again is rejected.
@@ -154,13 +154,13 @@ Vouch button so the refusal can be demonstrated live.
 ## Connect flexibly (chat and bargaining)
 
 After choosing an artisan, the customer taps **Connect flexibly** (the artisan taps **Chat** in the inbox) to talk about the job and bargain.
-When they agree, the **customer writes the final price with the currency at the end**, for example `ok, 9000 FCFA` (also `9 000 XAF`,
+The **customer bargains and the artisan states the final price**: when they agree, the **artisan writes the final price with the currency at the end**, for example `OK, my final price is 9000 FCFA` (also `9 000 XAF`,
 `9.000 fcfa`, `1 250 000 CFA`). The amount is read from the chat (`src/domain/chat.ts`) and becomes the job price; the commission is then
-computed from it and shown in the chat, on the artisan's SMS, in the inbox, on the receipt and in the operator audit log.
+computed from it and shown in the chat, in the inbox and in the operator audit log; the customer is told the final price by SMS.
 
-- Only the **customer** can fix the price. An amount typed by the artisan is only a suggestion.
-- A number without the currency fixes nothing and the customer is reminded to add it. Amounts must be 500 to 5,000,000 FCFA.
-- The artisan's **YES** is the agreement; after it the price is locked. (This mirrors the backend: customer proposes, artisan accepts.)
+- Only the **artisan** can fix the price. An amount typed by the customer is only an offer in the conversation and never changes the price.
+- A number without the currency fixes nothing and the artisan is reminded to add it. Amounts must be 500 to 5,000,000 FCFA.
+- The artisan's **YES** accepts the job at the price he stated; after it the price is locked. The customer's consent is **paying** (or withdrawing during the cooling-off period). Backend: the artisan's chat amount becomes `proposed_price` (`proposed_by = ARTISAN`) and `accept` agrees it.
 - Phone numbers (9+ digits or +CC...) are hidden as `[number hidden]` so the deal stays on the platform.
 - The chat closes when the job is declined or completed.
 - Backend: `POST/GET /jobs/{id}/messages` (branch `feature/backend-chat`, rules identical to the front end). In sync mode every message is mirrored and the
