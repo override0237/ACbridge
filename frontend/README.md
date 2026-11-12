@@ -63,7 +63,7 @@ Seed names and phones in `src/data/seed.ts` mirror `backend/app/seed.py` (Grace,
    job with the artisan, but also that two seeded artisans vouch for a brand-new one. The demo button records the
    vouch with that attestation set; the rule rejects a vouch without it.
 5. **Phone/password for the demo accounts** is the backend's local demo password. Real auth is out of scope.
-6. **Commission is display-only.** The backend has no payments, so the commission is computed and shown by the front end (`src/domain/money.ts`) and the backend only receives the agreed price.
+6. **Commission model.** The demo uses the payments module's `customer_split` model: the customer pays the full agreed price and the 5% commission is booked at that moment. Start the backend with `COMMISSION_MODEL=customer_split` in sync mode (the default `artisan_upfront` charges the artisan before assignment and the offline demo would not match). The backend also has a 300 FCFA minimum commission, so amounts under 6,000 FCFA differ from the demo's plain 5%.
 7. **Usernames are front-end only.** The backend logs in with phone + password, so in sync mode the front end uses the artisan's phone and the password they typed (kept in memory for the session only). Seeded artisans use the backend's demo password.
 
 ## 60-second walkthrough
@@ -72,10 +72,11 @@ Seed names and phones in `src/data/seed.ts` mirror `backend/app/seed.py` (Grace,
 2. Tap **Simulate vouch 1**: still "1 of 2". Tap **Simulate vouch 2**: **Verified**, SMS sent.
 3. Back to Home → **I need a service** → type the artisan you need (e.g. Plumber), pick urgency → **Find artisans**. The list appears instantly and only shows verified artisans of that trade; your new artisan is in it.
 4. Tap **Choose** on any artisan (e.g. yours) → **Confirm** (the price breakdown with the 5% commission is shown first).
-5. Job tracking → **Open as artisan** → **YES**. The **job code** appears only in the SMS panel, sent to the customer (`+237690000030`).
-6. Artisan → **Finish job** → type a wrong code (error, nothing happens) → type the right code → completed.
-7. Tracking → **Rate job** → pick stars → **Send rating** → "Thank you. Your rating is recorded." Rating again is rejected.
-8. Open the artisan's **profile** (trust score and rating) and the **Operator** panel (PIN `1234`) for the audit log.
+5. Job tracking → **Connect flexibly** to bargain (the customer ends a message with e.g. `9000 FCFA`) → **Open as artisan** → **YES**. The price is now agreed but there is **no job code yet**.
+6. Home → **My job** → **Payments** → **Pay now** → MTN or Orange + a phone number → the sandbox approves after 5 seconds (number `600000000` is always declined, to show the failure screen). Only now is the **job code** sent (SMS panel, to the customer) and the artisan's phone shown.
+7. Artisan → **Job inbox** → **Finish job** → type a wrong code (error, nothing happens) → type the right code → completed and the payout is paid.
+8. Tracking → **Rate job** → pick stars → **Send rating** → "Thank you. Your rating is recorded." Rating again is rejected.
+9. Open the artisan's **profile** (trust score and rating) and the **Operator** panel (PIN `1234`): payments, ledger balances (platform revenue 275, artisan paid 5 225 for a 5 500 FCFA job), payouts with Hold/Release (a reason is required), reconciliation (try **Simulate mismatch**) and the audit log.
 
 ## Acceptance criteria → where to see them
 
@@ -168,3 +169,14 @@ computed from it and shown in the chat, on the artisan's SMS, in the inbox, on t
 Known difference: the backend charges the artisan's commission with a **300 FCFA minimum** (and rounds down), paid when the artisan
 confirms the terms, with escrow and a 24h cooling-off. The offline demo takes a plain 5% at completion (no minimum), so shown amounts can differ
 from the backend's for prices under 6,000 FCFA in sync mode.
+
+## Secure payments (sandbox) in the demo
+
+SANDBOX: no real money moves. The offline demo simulates the payments module described in `../PAYMENTS.md` (the real implementation is in the FastAPI backend):
+
+- **Customer Payments tab** (from Job tracking): agreed price card -> method (MTN MoMo / Orange Money) + phone on a numeric keypad -> waiting screen (polls every 3 s, up to 3 min) -> result -> receipt. The amount is always taken from the job, never typed; the receipt and the card show **no commission breakdown** for the customer.
+- **When the payment succeeds:** the full price goes to the `collection` account, the commission is booked as `platform_revenue` at once, and the artisan's share waits in `artisan_pending` as a PENDING payout. The job code (stored hashed) and the artisan's phone are unlocked only now.
+- **Correct job code:** the payout is released and PAID (`artisan_pending` -> `artisan_paid`). A wrong code changes nothing. An operator-held payout is not paid by completion.
+- **Operator panel:** payments list (phones masked), ledger balances with a balanced/unbalanced indicator, payouts with Hold / Release (reason of 5+ characters required, written to the audit log), and a reconciliation table with a red **Mismatch** warning, plus completed jobs that have no payment (possible off-platform payment).
+- **Not in the offline demo:** signed webhooks, idempotency keys and per-phone rate limits live in the backend. In sync mode the demo starts the payment with an `Idempotency-Key` and approves the simulated prompt.
+- **Bundle check:** the built `acbridge.html` contains no provider keys or webhook secret. It does contain the demo operator PIN `1234` because the offline demo gates its operator screen on the client; the backend operator endpoints require an administrator login instead.

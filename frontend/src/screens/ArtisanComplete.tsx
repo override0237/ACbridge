@@ -41,6 +41,9 @@ export function ArtisanComplete() {
   }
 
   const done = job.status === 'COMPLETED';
+  if (!done && !job.codeHash) {
+    return <Screen title={t('complete.title')} instruction={t('complete.waitPay')} back="artisanInbox"><p className="notice">{t('complete.waitPay')}</p></Screen>;
+  }
   return (
     <Screen title={t('complete.title')} instruction={t('complete.instruction')} back="artisanInbox">
       <Card>

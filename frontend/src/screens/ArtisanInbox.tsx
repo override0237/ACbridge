@@ -37,7 +37,9 @@ export function ArtisanInbox() {
             {j.status === 'ACCEPTED' && (
               <>
                 <p><Badge icon="✅" text={t('inbox.accepted')} tone="good" /></p>
-                <Button big icon="🔢" label={t('inbox.finish')} onClick={() => actions.go('artisanComplete', { jobId: j.id })} />
+                {j.codeHash
+                  ? <Button big icon="🔢" label={t('inbox.finish')} onClick={() => actions.go('artisanComplete', { jobId: j.id })} />
+                  : <p className="notice">{t('complete.waitPay')}</p>}
               </>
             )}
             {j.status === 'DECLINED' && <p><Badge icon="🚫" text={t('inbox.declined')} tone="bad" /></p>}

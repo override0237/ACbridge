@@ -11,6 +11,7 @@ export function renderParams(params: Params, t: (key: Key) => string, lang: Lang
   const out: Params = { ...params };
   if (typeof out.urgency === 'string') out.urgency = t(`urgency.${out.urgency}` as Key);
   if (typeof out.trade === 'string') out.trade = tradeLabel(t, out.trade).toLowerCase();
+  if (typeof out.method === 'string') out.method = t(`pay.${out.method}` as Key);
   for (const k of Object.keys(out)) if (MONEY_PARAMS.has(k) && typeof out[k] === 'number') out[k] = money(out[k] as number, lang);
   return out;
 }

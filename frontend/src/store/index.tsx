@@ -3,6 +3,9 @@ import { API_MODE, NEIGHBOURHOOD } from '../config';
 import { resolveTrade } from '../domain/trades';
 import { SEED_CUSTOMER } from '../data/seed';
 import { checkChatMessage, type ChatSender, type PriceStatus } from '../domain/chat';
+import {
+  POLL_MAX_MS, SANDBOX_APPROVE_AFTER_MS, SANDBOX_DECLINED_PHONE, checkHold, checkPayStart, checkRelease, type PayCheck, type PayMethod, type PayoutCheck,
+} from '../domain/ledger';
 import { agreedPrice } from '../domain/money';
 import {
   checkCompletion, checkRating, checkVouch, generateJobCode, normalizePhone, type CompletionCheck, type RatingCheck,
@@ -40,6 +43,10 @@ export interface Actions {
   answer(jobId: string, accept: boolean): void;
   /** Sends a chat message. When the customer ends it with an amount and currency, that amount becomes the job price. */
   sendChat(jobId: string, from: ChatSender, text: string): { ok: true; price: PriceStatus; amount: number | null } | { ok: false; error: Key };
+  /** Starts a payment for the job's agreed price (the amount is never an input). The sandbox provider answers after 5 seconds. */
+  startPayment(jobId: string, method: PayMethod, phone: string): PayCheck;
+  holdPayout(payoutId: string, reason: string): PayoutCheck;
+  releasePayout(payoutId: string, reason: string): PayoutCheck;
   complete(jobId: string, entered: string): CompletionCheck;
   rate(jobId: string, score: number, comment: string): RatingCheck;
   operator(artisanId: string, approve: boolean): void;
@@ -71,6 +78,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (API_MODE !== 'api') return;
     try { await step(); } catch (e) { setNotice(`${translate(ref.current.lang, 'mode.api')}: ${(e as Error).message}`); }
   }, []);
+
+  /** The sandbox provider "calls back" after a delay. The job code is generated here (impure) and stored only as a hash. */
+  const scheduleSettle = useCallback((paymentId: string, ok: boolean, delayMs: number) => {
+    setTimeout(() => {
+      dispatch({ type: 'paySettle', id: paymentId, ok, code: generateJobCode(), at: now(), ids: ids(4) });
+      const payment = ref.current.payments.find((p) => p.id === paymentId);
+      const job = ref.current.jobs.find((j) => j.id === payment?.jobId);
+      if (ok && payment && job) void mirror(async () => { await bridge.payJob(job, payment.phone); });
+    }, delayMs);
+  }, [mirror]);
+
+  // A payment still pending after a page refresh is settled by the sandbox straight away.
+  useEffect(() => {
+    for (const p of ref.current.payments) {
+      if (p.status === 'pending') scheduleSettle(p.id, p.phone !== SANDBOX_DECLINED_PHONE, Math.max(0, SANDBOX_APPROVE_AFTER_MS - (Date.now() - new Date(p.createdAt).getTime())));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  void POLL_MAX_MS;
 
   const actions = useMemo<Actions>(() => {
     const find = <T extends { id: string }>(list: T[], id: string | null | undefined) => list.find((x) => x.id === id);
@@ -174,7 +200,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       answer(jobId, accept) {
         // The job code is generated here (impure) and handed to the pure reducer, which stores only its hash.
-        dispatch({ type: 'answer', jobId, accept, code: generateJobCode(), at: now(), ids: ids(3) });
+        dispatch({ type: 'answer', jobId, accept, at: now(), ids: ids(3) });
         if (accept) {
           void mirror(async () => {
             const job = find(ref.current.jobs, jobId);
@@ -182,6 +208,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (job && artisan) await bridge.acceptJob(job, artisan);
           });
         }
+      },
+
+      startPayment(jobId, method, phone) {
+        const s = ref.current;
+        const normalized = normalizePhone(phone);
+        const job = find(s.jobs, jobId);
+        const check = checkPayStart(job, s.payments, method, normalized);
+        if (!check.ok) return check;
+        const id = uid('pay');
+        dispatch({ type: 'payStart', id, jobId, method, phone: normalized, ref: `SIM-${Math.random().toString(36).slice(2, 10).toUpperCase()}`, at: now(), ids: ids(1) });
+        scheduleSettle(id, normalized === SANDBOX_DECLINED_PHONE ? false : true, SANDBOX_APPROVE_AFTER_MS);
+        return check;
+      },
+
+      holdPayout(payoutId, reason) {
+        const check = checkHold(find(ref.current.payouts, payoutId), reason);
+        if (check.ok) dispatch({ type: 'payoutHold', payoutId, reason, at: now(), id: uid('aud') });
+        return check;
+      },
+
+      releasePayout(payoutId, reason) {
+        const payout = find(ref.current.payouts, payoutId);
+        const check = checkRelease(payout, find(ref.current.jobs, payout?.jobId), reason);
+        if (check.ok) dispatch({ type: 'payoutRelease', payoutId, reason, at: now(), ids: ids(2) });
+        return check;
       },
 
       sendChat(jobId, from, text) {
@@ -235,7 +286,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'reset', lang: ref.current.lang });
       },
     } satisfies Actions;
-  }, [mirror]);
+  }, [mirror, scheduleSettle]);
 
   const value = useMemo<Ctx>(
     () => ({ state, actions, t, notice, clearNotice: () => setNotice(null) }),

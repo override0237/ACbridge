@@ -19,10 +19,10 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-async function call<T>(method: string, path: string, token?: string, body?: unknown): Promise<T> {
+async function call<T>(method: string, path: string, token?: string, body?: unknown, extra: Record<string, string> = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data: unknown = res.status === 204 ? null : await res.json().catch(() => null);
@@ -67,8 +67,13 @@ export const api = {
   matches: (t: string, requestId: string) => call<{ matches: MatchOut[] }>('GET', `/matches/${requestId}`, t),
   createJob: (t: string, requestId: string, artisanId: string, agreedPrice: number) =>
     call<JobOut>('POST', '/jobs', t, { request_id: requestId, artisan_id: artisanId, agreed_price: agreedPrice }),
-  jobAction: (t: string, jobId: string, action: 'accept' | 'start' | 'confirm-completion') =>
+  jobAction: (t: string, jobId: string, action: 'accept' | 'confirm-terms' | 'start' | 'confirm-completion') =>
     call<JobOut>('POST', `/jobs/${jobId}/${action}`, t),
+  /** Starts the payment for the job's agreed price. The amount is never sent: the server reads it from the job. */
+  pay: (t: string, jobId: string, idempotencyKey: string) =>
+    call<{ payment_id: string; status: string }>('POST', `/jobs/${jobId}/pay`, t, undefined, { 'Idempotency-Key': idempotencyKey }),
+  /** SANDBOX ONLY: approves the simulated mobile-money prompt (a real provider would call the signed webhook). */
+  approvePayment: (t: string, paymentId: string) => call('POST', `/payments/${paymentId}/simulate-approval`, t),
   sendMessage: (t: string, jobId: string, body: string) =>
     call<{ price_status: string }>('POST', `/jobs/${jobId}/messages`, t, { body }),
   review: (t: string, jobId: string, rating: number, comment: string) =>

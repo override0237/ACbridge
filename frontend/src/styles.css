@@ -138,3 +138,5 @@ h3 { font-size: 1.05rem; margin: .5rem 0 .2rem; }
 .feedback { border-radius: 10px; padding: .6rem .8rem; font-weight: 700; border: 2px solid currentColor; }
 .feedback[hidden] { display: none; }
 .feedback-good { background: var(--good-bg); color: var(--good); } .feedback-warn { background: var(--warn-bg); color: var(--warn); } .feedback-bad { background: var(--bad-bg); color: var(--bad); }
+
+.diff-bad { color: var(--bad); font-weight: 800; }

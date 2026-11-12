@@ -15,6 +15,7 @@ import { Chat } from './screens/Chat';
 import { Home } from './screens/Home';
 import { Matches } from './screens/Matches';
 import { Operator } from './screens/Operator';
+import { Payments } from './screens/Payments';
 import { Rate } from './screens/Rate';
 import { Tracking } from './screens/Tracking';
 import { StoreProvider, useStore } from './store';
@@ -33,6 +34,7 @@ const SCREENS: Record<Screen, ComponentType> = {
   matches: Matches,
   tracking: Tracking,
   chat: Chat,
+  payments: Payments,
   rate: Rate,
   operator: Operator,
   profile: ArtisanProfile,

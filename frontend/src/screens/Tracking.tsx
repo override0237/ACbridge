@@ -1,8 +1,9 @@
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { PriceBreakdown } from '../components/PriceBreakdown';
 import { Screen } from '../components/Screen';
 import type { Key } from '../i18n';
+import { isPaid } from '../domain/ledger';
+import { money } from '../i18n/format';
 import { useStore } from '../store';
 
 const STEPS: { key: Key; icon: string }[] = [
@@ -21,6 +22,7 @@ export function Tracking() {
   const rated = state.ratings.some((r) => r.jobId === job.id);
   const current = rated ? 3 : job.status === 'COMPLETED' ? 2 : job.status === 'ACCEPTED' ? 1 : 0;
   const declined = job.status === 'DECLINED';
+  const paid = isPaid(job, state.payments);
   const msgKey: Key = declined ? 'tracking.msgDeclined' : rated ? 'tracking.msgRated'
     : job.status === 'COMPLETED' ? 'tracking.msgCompleted' : job.status === 'ACCEPTED' ? 'tracking.msgAccepted' : 'tracking.msgRequested';
   const msg = t(msgKey, { artisan: artisan?.name ?? '' });
@@ -42,8 +44,18 @@ export function Tracking() {
         </ol>
         <p role="status" className="notice">{msg}</p>
       </Card>
-      {!declined && <PriceBreakdown price={job.price} rate={job.commissionRate} done={job.status === 'COMPLETED'} />}
+      {!declined && (
+        <Card>
+          <dl className="facts">
+            <dt>{t('pay.price')}</dt><dd><strong>{money(job.price, state.lang)} {t('common.currency')}</strong></dd>
+            <dt>{t('pay.contact')}</dt><dd>{paid && artisan ? artisan.phone : `🔒 ${t('pay.contactLocked')}`}</dd>
+          </dl>
+        </Card>
+      )}
       <div className="stack">
+        {(job.status === 'ACCEPTED' || job.status === 'COMPLETED') && (
+          <Button big icon="💳" label={t('pay.open')} onClick={() => actions.go('payments')} />
+        )}
         {(job.status === 'REQUESTED' || job.status === 'ACCEPTED') && (
           <Button big icon="💬" label={t('chat.open')} onClick={() => actions.go('chat', { chatAs: 'customer' })} />
         )}

@@ -74,20 +74,22 @@ describe('the reducer turns the customer amount into the price and the commissio
     expect(s.sms.at(-1)).toMatchObject({ to: '+237690000015', key: 'sms.priceProposed', params: { price: 9000, commission: 450 } });
     expect(s.audit.at(-1)).toMatchObject({ kind: 'price', params: { price: 9000, commission: 450 } });
 
-    const code = generateJobCode();
-    s = reducer(s, { type: 'answer', jobId: 'job', accept: true, code, at, ids: ids(3) });
+    s = reducer(s, { type: 'answer', jobId: 'job', accept: true, at, ids: ids(3) });
     expect(s.chats.at(-1)).toMatchObject({ key: 'chat.sysAccepted', params: { price: 9000 } });
     // locked: a later amount changes nothing
     s = reducer(s, { type: 'chat', id: 'm4', sysId: 's4', jobId: 'job', from: 'customer', text: '3000 FCFA', at, ids: ids(2) });
     expect(s.jobs[0].price).toBe(9000);
-    // the commission is taken from the AGREED price when the job completes
-    s = reducer(s, { type: 'complete', jobId: 'job', entered: code, at, ids: ids(4) });
+    // the customer pays the AGREED price: the commission is cut from it at that moment
+    const code = generateJobCode();
+    s = reducer(s, { type: 'payStart', id: 'p1', jobId: 'job', method: 'mtn', phone: '+237670123456', ref: 'R', at, ids: ids(1) });
+    s = reducer(s, { type: 'paySettle', id: 'p1', ok: true, code, at, ids: ids(4) });
     expect(s.jobs[0]).toMatchObject({ commission: 450, payout: 8550 });
+    expect(s.payouts[0]).toMatchObject({ amount: 8550, commission: 450 });
   });
 
   it('ignores a message on a job that is closed', () => {
     let s = start();
-    s = reducer(s, { type: 'answer', jobId: 'job', accept: false, code: '000000', at, ids: ids(3) });
+    s = reducer(s, { type: 'answer', jobId: 'job', accept: false, at, ids: ids(3) });
     const before = s.chats.length;
     s = reducer(s, { type: 'chat', id: 'm', sysId: 's', jobId: 'job', from: 'customer', text: 'hello', at, ids: ids(2) });
     expect(s.chats).toHaveLength(before);

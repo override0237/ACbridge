@@ -93,12 +93,49 @@ export interface SmsMessage {
   at: string;
 }
 
-export type AuditKind = 'verification' | 'job_accepted' | 'job_completed' | 'transaction' | 'price' | 'rating' | 'trust' | 'security';
+export type AuditKind = 'verification' | 'job_accepted' | 'job_completed' | 'transaction' | 'price' | 'payment' | 'payout' | 'rating' | 'trust' | 'security';
 export interface AuditEntry {
   id: string;
   kind: AuditKind;
   params: Record<string, string | number>;
   at: string;
+}
+
+export interface PaymentRec {
+  id: string;
+  jobId: string;
+  method: 'mtn' | 'orange';
+  /** Customer's mobile-money number (kept only to mask it in operator views). */
+  phone: string;
+  /** Always copied from the job when the payment starts, never typed by the customer. */
+  amount: number;
+  status: 'pending' | 'succeeded' | 'failed';
+  reference: string;
+  createdAt: string;
+  settledAt?: string;
+}
+
+export interface LedgerLine {
+  id: string;
+  txKey: string;
+  account: 'collection' | 'platform_revenue' | 'artisan_pending' | 'artisan_paid' | 'refund_payable';
+  direction: 'DEBIT' | 'CREDIT';
+  amount: number;
+  at: string;
+}
+
+export interface Payout {
+  id: string;
+  jobId: string;
+  artisanId: string;
+  paymentId: string;
+  /** What the artisan receives (price minus commission). */
+  amount: number;
+  commission: number;
+  status: 'PENDING' | 'HELD' | 'PAID' | 'FAILED';
+  note?: string;
+  createdAt: string;
+  paidAt?: string;
 }
 
 export interface ChatMessage {

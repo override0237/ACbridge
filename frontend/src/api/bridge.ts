@@ -103,9 +103,20 @@ export async function sendChat(job: Job, from: 'customer' | 'artisan', text: str
   await api.sendMessage(token, job.remoteId, text);
 }
 
+/** Artisan agrees to the price, then confirms the terms (needs the backend in COMMISSION_MODEL=customer_split). */
 export async function acceptJob(job: Job, artisan: Artisan): Promise<void> {
   if (!job.remoteId) return;
-  await api.jobAction(await login(artisan.phone), job.remoteId, 'accept');
+  const t = await login(artisan.phone);
+  await api.jobAction(t, job.remoteId, 'accept');
+  await api.jobAction(t, job.remoteId, 'confirm-terms');
+}
+
+/** Customer pays the agreed price (sandbox): start the payment with an Idempotency-Key and approve the simulated prompt. */
+export async function payJob(job: Job, _phone: string): Promise<void> {
+  if (!job.remoteId) return;
+  const t = await login(job.customerPhone);
+  const payment = await api.pay(t, job.remoteId, `ui-${job.id}`);
+  await api.approvePayment(t, payment.payment_id);
 }
 
 /** The correct job code stands for both parties confirming; the backend needs each side's confirmation. */

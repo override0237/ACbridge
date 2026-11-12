@@ -12,6 +12,7 @@ export function Home() {
         <p className="muted small center">{t('home.artisanHint')}</p>
         <Button big variant="secondary" icon="🔧" label={t('home.customer')} onClick={() => actions.go('customerRequest')} />
         <p className="muted small center">{t('home.customerHint')}</p>
+        {state.ui.jobId && <Button variant="ghost" icon="📍" label={t('home.track')} onClick={() => actions.go('tracking')} />}
       </div>
     </Screen>
   );

@@ -1,8 +1,9 @@
 import type {
-  Artisan, AuditEntry, AuditKind, ChatMessage, Job, Lang, Rating, ServiceRequest, SmsMessage, Urgency, Vouch,
+  Artisan, AuditEntry, AuditKind, ChatMessage, Job, Lang, LedgerLine, PaymentRec, Payout, Rating, ServiceRequest, SmsMessage, Urgency, Vouch,
 } from '../domain/types';
 import { SEED_ARTISANS, SEED_CUSTOMER } from '../data/seed';
 import { checkChatMessage, maskContacts, type ChatSender } from '../domain/chat';
+import { checkHold, checkPayStart, checkRelease, paymentSucceededLines, payoutPaidLines, postTx, type PayMethod } from '../domain/ledger';
 import { computeCommission } from '../domain/money';
 import {
   checkCompletion, checkRating, checkVouch, formatScore, hashCode, isVerified, trustFor,
@@ -11,7 +12,7 @@ import { lastHash, sealVouch } from '../domain/security';
 
 export type Screen =
   | 'home' | 'artisanEntry' | 'artisanLogin' | 'artisanSignup' | 'artisanStatus' | 'artisanInbox' | 'artisanComplete'
-  | 'customerRequest' | 'matches' | 'tracking' | 'chat' | 'rate' | 'operator' | 'profile';
+  | 'customerRequest' | 'matches' | 'tracking' | 'chat' | 'payments' | 'rate' | 'operator' | 'profile';
 
 export interface UiState {
   screen: Screen;
@@ -34,6 +35,9 @@ export interface State {
   requests: ServiceRequest[];
   jobs: Job[];
   chats: ChatMessage[];
+  payments: PaymentRec[];
+  payouts: Payout[];
+  ledger: LedgerLine[];
   ratings: Rating[];
   sms: SmsMessage[];
   audit: AuditEntry[];
@@ -48,6 +52,9 @@ export const initialState = (): State => ({
   requests: [],
   jobs: [],
   chats: [],
+  payments: [],
+  payouts: [],
+  ledger: [],
   ratings: [],
   sms: [],
   audit: [],
@@ -64,7 +71,11 @@ export type Action =
   | { type: 'vouch'; artisanId: string; voucherId: string; workedTogether: boolean; vouchId: string; at: string; ids: string[] }
   | { type: 'request'; request: ServiceRequest }
   | { type: 'choose'; jobId: string; requestId: string; artisanId: string; price: number; at: string; ids: string[] }
-  | { type: 'answer'; jobId: string; accept: boolean; code: string; at: string; ids: string[] }
+  | { type: 'answer'; jobId: string; accept: boolean; at: string; ids: string[] }
+  | { type: 'payStart'; id: string; jobId: string; method: PayMethod; phone: string | null; ref: string; at: string; ids: string[] }
+  | { type: 'paySettle'; id: string; ok: boolean; code: string; at: string; ids: string[] }
+  | { type: 'payoutHold'; payoutId: string; reason: string; at: string; id: string }
+  | { type: 'payoutRelease'; payoutId: string; reason: string; at: string; ids: string[] }
   | { type: 'chat'; id: string; sysId: string; jobId: string; from: ChatSender; text: string; at: string; ids: string[] }
   | { type: 'complete'; jobId: string; entered: string; at: string; ids: string[] }
   | { type: 'rate'; ratingId: string; jobId: string; score: number; comment: string; at: string; ids: string[] }
@@ -172,10 +183,10 @@ export function reducer(s: State, a: Action): State {
       }
       return {
         ...s,
-        jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, status: 'ACCEPTED', codeHash: hashCode(a.code), acceptedAt: a.at } : j)),
+        // The price is now agreed and frozen. The job code is only created (and sent to the customer) once the payment succeeds.
+        jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, status: 'ACCEPTED', acceptedAt: a.at } : j)),
         chats: [...s.chats, { id: a.ids[2], jobId: job.id, from: 'system', text: '', key: 'chat.sysAccepted', params: { price: job.price, artisan: artisan.name }, at: a.at }],
-        // The plain code exists only inside this SMS to the customer; the job stores its hash.
-        sms: [...s.sms, sms(a.ids[0], job.customerPhone, 'sms.jobCode', { artisan: artisan.name, code: a.code }, a.at)],
+        sms: [...s.sms, sms(a.ids[0], job.customerPhone, 'sms.accepted', { artisan: artisan.name, price: job.price }, a.at)],
         audit: [...s.audit, audit(a.ids[1], 'job_accepted', { artisan: artisan.name }, a.at)],
       };
     }
@@ -210,26 +221,104 @@ export function reducer(s: State, a: Action): State {
       };
     }
 
+    case 'payStart': {
+      const job = byId(s.jobs, a.jobId);
+      if (!job || !checkPayStart(job, s.payments, a.method, a.phone).ok) return s; // the amount is read from the job, never from the UI
+      const artisan = byId(s.artisans, job.artisanId);
+      const payment: PaymentRec = {
+        id: a.id, jobId: job.id, method: a.method, phone: a.phone ?? '', amount: job.price, status: 'pending', reference: a.ref, createdAt: a.at,
+      };
+      return {
+        ...s,
+        payments: [...s.payments, payment],
+        audit: [...s.audit, audit(a.ids[0], 'payment', { event: 'started', artisan: artisan?.name ?? '', price: job.price, method: a.method }, a.at)],
+      };
+    }
+
+    case 'paySettle': {
+      const payment = byId(s.payments, a.id);
+      const job = payment && byId(s.jobs, payment.jobId);
+      const artisan = job && byId(s.artisans, job.artisanId);
+      if (!payment || !job || !artisan || payment.status !== 'pending') return s; // a repeated callback changes nothing
+      if (!a.ok) {
+        return {
+          ...s,
+          payments: s.payments.map((p) => (p.id === payment.id ? { ...p, status: 'failed', settledAt: a.at } : p)),
+          sms: [...s.sms, sms(a.ids[1], job.customerPhone, 'sms.payFailed', { price: payment.amount }, a.at)],
+          audit: [...s.audit, audit(a.ids[3], 'payment', { event: 'failed', artisan: artisan.name, price: payment.amount }, a.at)],
+        };
+      }
+      // Success: book the money. The commission is revenue NOW; the artisan's share waits as a pending payout.
+      const split = paymentSucceededLines(payment.amount);
+      const tx = computeCommission(payment.amount);
+      const payout: Payout = {
+        id: a.ids[0], jobId: job.id, artisanId: artisan.id, paymentId: payment.id, amount: split.payout, commission: split.commission,
+        status: 'PENDING', createdAt: a.at,
+      };
+      return {
+        ...s,
+        payments: s.payments.map((p) => (p.id === payment.id ? { ...p, status: 'succeeded', settledAt: a.at } : p)),
+        payouts: [...s.payouts, payout],
+        ledger: postTx(s.ledger, `payment-succeeded:${payment.id}`, split.lines, a.at),
+        // The job code (stored hashed) and the artisan's contact are unlocked only now.
+        jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, codeHash: hashCode(a.code), commissionRate: tx.rate, commission: tx.commission, payout: tx.payout } : j)),
+        sms: [
+          ...s.sms,
+          sms(a.ids[1], job.customerPhone, 'sms.jobCode', { artisan: artisan.name, code: a.code }, a.at),
+          sms(a.ids[2], artisan.phone, 'sms.paymentReceived', { price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout }, a.at),
+        ],
+        audit: [...s.audit, audit(a.ids[3], 'payment', {
+          event: 'succeeded', artisan: artisan.name, price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout,
+        }, a.at)],
+      };
+    }
+
+    case 'payoutHold': {
+      const payout = byId(s.payouts, a.payoutId);
+      if (!payout || !checkHold(payout, a.reason).ok) return s;
+      const artisan = byId(s.artisans, payout.artisanId);
+      return {
+        ...s,
+        payouts: s.payouts.map((p) => (p.id === payout.id ? { ...p, status: 'HELD', note: a.reason.trim() } : p)),
+        audit: [...s.audit, audit(a.id, 'payout', { event: 'held', artisan: artisan?.name ?? '', payout: payout.amount, reason: a.reason.trim() }, a.at)],
+      };
+    }
+
+    case 'payoutRelease': {
+      const payout = byId(s.payouts, a.payoutId);
+      const job = payout && byId(s.jobs, payout.jobId);
+      if (!payout || !checkRelease(payout, job, a.reason).ok) return s;
+      const artisan = byId(s.artisans, payout.artisanId);
+      return {
+        ...s,
+        payouts: s.payouts.map((p) => (p.id === payout.id ? { ...p, status: 'PAID', paidAt: a.at, note: a.reason.trim() } : p)),
+        ledger: postTx(s.ledger, `payout-paid:${payout.id}`, payoutPaidLines(payout.amount), a.at),
+        sms: [...s.sms, sms(a.ids[0], artisan?.phone ?? '', 'sms.payoutPaid', { payout: payout.amount }, a.at)],
+        audit: [...s.audit, audit(a.ids[1], 'payout', { event: 'released', artisan: artisan?.name ?? '', payout: payout.amount, reason: a.reason.trim() }, a.at)],
+      };
+    }
+
     case 'complete': {
       const job = byId(s.jobs, a.jobId);
       const artisan = job && byId(s.artisans, job.artisanId);
       if (!job || !artisan || !checkCompletion(job, a.entered).ok) return s;
-      // The transaction: the commission is taken from the artisan's side only.
-      const tx = computeCommission(job.price);
+      // The correct job code proves the work: the artisan's payout is released and paid unless an operator is holding it.
+      const payout = s.payouts.find((p) => p.jobId === job.id);
+      const pays = payout?.status === 'PENDING';
       return {
         ...s,
-        jobs: s.jobs.map((j) => (j.id === job.id
-          ? { ...j, status: 'COMPLETED', codeUsed: true, completedAt: a.at, commissionRate: tx.rate, commission: tx.commission, payout: tx.payout }
-          : j)),
+        jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, status: 'COMPLETED', codeUsed: true, completedAt: a.at } : j)),
+        payouts: pays ? s.payouts.map((p) => (p.id === payout.id ? { ...p, status: 'PAID', paidAt: a.at } : p)) : s.payouts,
+        ledger: pays ? postTx(s.ledger, `payout-paid:${payout.id}`, payoutPaidLines(payout.amount), a.at) : s.ledger,
         sms: [
           ...s.sms,
-          sms(a.ids[0], job.customerPhone, 'sms.jobCompleted', { artisan: artisan.name, price: tx.price }, a.at),
-          sms(a.ids[2], artisan.phone, 'sms.payout', { price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout }, a.at),
+          sms(a.ids[0], job.customerPhone, 'sms.jobCompleted', { artisan: artisan.name, price: job.price }, a.at),
+          ...(pays ? [sms(a.ids[2], artisan.phone, 'sms.payoutPaid', { payout: payout.amount }, a.at)] : []),
         ],
         audit: [
           ...s.audit,
           audit(a.ids[1], 'job_completed', { artisan: artisan.name }, a.at),
-          audit(a.ids[3], 'transaction', { artisan: artisan.name, price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout }, a.at),
+          ...(pays ? [audit(a.ids[3], 'payout', { event: 'paid', artisan: artisan.name, payout: payout.amount, reason: '' }, a.at)] : []),
         ],
       };
     }

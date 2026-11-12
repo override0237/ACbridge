@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Badge, Card } from '../components/Card';
 import { Button } from '../components/Button';
+import { OperatorPayments } from '../components/OperatorPayments';
 import { Screen } from '../components/Screen';
 import { VOUCHES_REQUIRED } from '../config';
 import { SEED_OPERATOR } from '../data/seed';
 import { countValidVouches, formatScore, isVerified, trustFor } from '../domain/rules';
+import { balances } from '../domain/ledger';
 import { verifyLedger } from '../domain/security';
 import { money, renderParams } from '../i18n/format';
 import type { AuditEntry } from '../domain/types';
@@ -41,10 +43,10 @@ export function Operator() {
   const locale = state.lang === 'fr' ? 'fr-FR' : 'en-US';
   const ledger = verifyLedger(state.vouches);
   const doneJobs = state.jobs.filter((j) => j.status === 'COMPLETED');
-  const earnings = doneJobs.reduce((sum, j) => sum + (j.commission ?? 0), 0);
+  const earnings = balances(state.ledger).platform_revenue; // commission booked when customers paid
 
   const describe = (e: AuditEntry): string => {
-    const k = (e.kind === 'verification' || e.kind === 'security' ? `audit.${e.params.event}` : `audit.${e.kind}`) as Key;
+    const k = (e.kind === 'verification' || e.kind === 'security' ? `audit.${e.params.event}` : e.kind === 'payment' ? `audit.pay_${e.params.event}` : e.kind === 'payout' ? `audit.payout_${e.params.event}` : `audit.${e.kind}`) as Key;
     return t(k, renderParams(e.params, t, state.lang));
   };
 
@@ -83,6 +85,8 @@ export function Operator() {
           </ol>
         )}
       </Card>
+
+      <OperatorPayments />
 
       <Card>
         <h2>{t('operator.trust')}</h2>

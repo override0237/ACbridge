@@ -8,11 +8,11 @@ const BACKEND_ROUTES = [
   'POST /auth/register', 'POST /auth/login', 'GET /skills', 'POST /artisans', 'POST /artisans/:id/skills',
   'POST /artisans/:id/endorsements', 'POST /verifications', 'POST /verifications/:id/decision',
   'POST /service-requests', 'GET /matches/:id', 'POST /jobs', 'POST /jobs/:id/accept', 'POST /jobs/:id/start',
-  'POST /jobs/:id/confirm-completion', 'POST /jobs/:id/reviews', 'POST /jobs/:id/messages',
+  'POST /jobs/:id/confirm-completion', 'POST /jobs/:id/reviews', 'POST /jobs/:id/messages', 'POST /jobs/:id/confirm-terms', 'POST /jobs/:id/pay', 'POST /payments/:id/simulate-approval',
 ];
 const pattern = (m: string, p: string) => `${m} ${p.replace(/\/[0-9a-f-]{8,}/g, '/:id').replace(/\/(?=[a-z])/g, '/')}`;
 
-const calls: { route: string; body: unknown; auth: string | null }[] = [];
+const calls: { route: string; body: unknown; auth: string | null; idem: string | null }[] = [];
 
 beforeEach(() => {
   calls.length = 0;
@@ -20,7 +20,7 @@ beforeEach(() => {
     const path = url.replace(/^.*?\/api/, '');
     const method = init.method ?? 'GET';
     const body = init.body ? JSON.parse(init.body as string) : undefined;
-    calls.push({ route: pattern(method, path), body, auth: (init.headers as Record<string, string>).Authorization ?? null });
+    calls.push({ route: pattern(method, path), body, auth: (init.headers as Record<string, string>).Authorization ?? null, idem: (init.headers as Record<string, string>)['Idempotency-Key'] ?? null });
     const json = (data: unknown, status = 200) => ({ ok: status < 300, status, json: async () => data });
     if (path === '/skills') return json([{ skill_id: 'aaaaaaaa-1111', skill_name: 'Plumbing' }]);
     if (path === '/auth/login') return json({ access_token: `tok-${body.phone}`, user_id: 'u', role: 'X' });
@@ -29,6 +29,7 @@ beforeEach(() => {
     if (path === '/verifications') return json({ check_id: 'cccccccc-3333' }, 201);
     if (path === '/service-requests') return json({ request_id: 'dddddddd-4444' }, 201);
     if (path.startsWith('/matches/')) return json({ matches: [{ artisan_id: 'eeeeeeee-5555', full_name: 'Grace Ndifor' }] });
+    if (path.endsWith('/pay')) return json({ payment_id: 'aaaaaaaa-7777', status: 'PENDING' }, 201);
     if (path === '/jobs') return json({ job_id: 'ffffffff-6666', status: 'REQUESTED' }, 201);
     return json({ job_id: 'ffffffff-6666', status: 'OK' });
   }));
@@ -53,6 +54,7 @@ describe('API bridge calls only routes the backend defines', () => {
     expect(jobId).toBe('ffffffff-6666');
     const job: Job = { id: 'j', requestId: 'r', artisanId: 'seed-1', customerPhone: req.customerPhone, status: 'ACCEPTED', codeHash: 'x', codeUsed: false, price: 5500, priceSource: 'estimate', createdAt: '', remoteId: jobId! };
     await bridge.acceptJob(job, grace);
+    await bridge.payJob(job, '+237670123456');
     await bridge.completeJob(job, grace);
     await bridge.sendChat(job, 'customer', 'ok 9000 FCFA', grace);
     await bridge.sendChat(job, 'artisan', 'fine', grace);
@@ -67,6 +69,10 @@ describe('API bridge calls only routes the backend defines', () => {
     expect(ends).toEqual(['Bearer tok-+237690000015', 'Bearer tok-+237690000011']);
     const confirms = calls.filter((c) => c.route.endsWith('/confirm-completion')).map((c) => c.auth);
     expect(new Set(confirms).size).toBe(2);
+    const pay = calls.find((c) => c.route === 'POST /jobs/:id/pay')!;
+    expect(pay.body).toBeUndefined();                       // the amount is never sent: the server reads it from the job
+    expect(pay.auth).toBe('Bearer tok-+237690000030');     // paid by the customer
+    expect(pay.idem).toBe('ui-j');
     const chat = calls.filter((c) => c.route === 'POST /jobs/:id/messages');
     expect(chat.map((c) => c.body)).toEqual([{ body: 'ok 9000 FCFA' }, { body: 'fine' }]);
     expect(chat[0].auth).toBe('Bearer tok-+237690000030'); // customer token, then the artisan's own
