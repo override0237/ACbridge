@@ -42,7 +42,7 @@ def to_out(job: Job, user: User) -> JobOut:
     due = next((p for p in visible if p.status == PaymentStatus.PENDING.value and p.payer_id == user.user_id), None)
     return JobOut(
         pricing_mode=job.pricing_mode, proposed_price=job.proposed_price, proposed_by=job.proposed_by,
-        artisan_agreed=job.artisan_agreed, terms_agreed_at=job.terms_agreed_at,
+        artisan_agreed=job.artisan_agreed, offer_expires_at=svc.offer_expires_at(job), terms_agreed_at=job.terms_agreed_at,
         probation_ends_at=job.probation_ends_at, probation_active=svc.probation_active(job),
         can_cancel_freely=svc.can_cancel_freely(job), escrow_status=_escrow_status(job),
         payment_due=payment_out(due) if due else None, payments=[payment_out(p) for p in visible],

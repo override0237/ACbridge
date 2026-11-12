@@ -937,6 +937,19 @@
             "title": "Job Id",
             "type": "string"
           },
+          "offer_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Until when the artisan can still accept. After that the offer is cancelled. Null once answered.",
+            "title": "Offer Expires At"
+          },
           "payment_due": {
             "anyOf": [
               {
@@ -1969,6 +1982,17 @@
             "format": "uuid",
             "title": "Skill Id",
             "type": "string"
+          },
+          "urgency": {
+            "default": "NOT_URGENT",
+            "description": "The artisan must accept the offer within 1 hour (TODAY), 1 day (THIS_WEEK) or 5 days (NOT_URGENT), or it is cancelled",
+            "enum": [
+              "TODAY",
+              "THIS_WEEK",
+              "NOT_URGENT"
+            ],
+            "title": "Urgency",
+            "type": "string"
           }
         },
         "required": [
@@ -2027,6 +2051,10 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "urgency": {
+            "title": "Urgency",
+            "type": "string"
           }
         },
         "required": [
@@ -2037,6 +2065,7 @@
           "location",
           "budget",
           "needs_inspection",
+          "urgency",
           "status",
           "created_at"
         ],
@@ -2509,6 +2538,35 @@
           }
         ],
         "summary": "Unsuspend",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/expire-offers": {
+      "post": {
+        "description": "Cancel every job offer the artisan did not accept in time (1 hour urgent, 1 day this week, 5 days not urgent).",
+        "operationId": "expire_offers_admin_expire_offers_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Expire Offers Admin Expire Offers Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Expire Offers",
         "tags": [
           "admin"
         ]

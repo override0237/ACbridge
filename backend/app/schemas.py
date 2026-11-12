@@ -211,6 +211,10 @@ class ServiceRequestIn(BaseModel):
     needs_inspection: bool = Field(
         default=False, description="True if the artisan must examine the problem before a price can be given"
     )
+    urgency: Literal["TODAY", "THIS_WEEK", "NOT_URGENT"] = Field(
+        default="NOT_URGENT",
+        description="The artisan must accept the offer within 1 hour (TODAY), 1 day (THIS_WEEK) or 5 days (NOT_URGENT), or it is cancelled",
+    )
 
 
 class ServiceRequestOut(ORM):
@@ -221,6 +225,7 @@ class ServiceRequestOut(ORM):
     location: str
     budget: int | None
     needs_inspection: bool
+    urgency: str
     status: str
     created_at: datetime
 
@@ -371,6 +376,9 @@ class JobOut(BaseModel):
     proposed_by: str | None
     agreed_price: int | None
     artisan_agreed: bool
+    offer_expires_at: datetime | None = Field(
+        default=None, description="Until when the artisan can still accept. After that the offer is cancelled. Null once answered."
+    )
     terms_agreed_at: datetime | None
     probation_ends_at: datetime | None
     probation_active: bool = Field(description="True while both sides can still withdraw for free")

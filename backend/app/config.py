@@ -54,7 +54,11 @@ class Settings(BaseSettings):
 
     # Dispute window after completion (hours) and how long a proposed price stays valid (0 = never expires).
     dispute_window_hours: int = 48
-    quote_ttl_hours: int = 24
+
+    # An artisan who does not ACCEPT a job offer in time loses it (the offer is nullified). Hours, by the request's urgency.
+    offer_ttl_hours_today: int = 1
+    offer_ttl_hours_this_week: int = 24
+    offer_ttl_hours_not_urgent: int = 120
 
     # Shared secret used to sign payment-provider webhooks (HMAC-SHA256 of the raw body, hex, header X-Signature).
     webhook_secret: str = "dev-only-webhook-secret-change-me"
