@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60
 
+    # Browser origins allowed to call the API (your frontend's dev/prod URLs), comma-separated.
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"
+
     # Service area: the platform only matches within these towns (lower-case, comma-separated).
     supported_towns: str = "buea,limbe"
 
@@ -38,6 +41,10 @@ class Settings(BaseSettings):
     @property
     def supported_town_set(self) -> frozenset[str]:
         return frozenset(t.strip().lower() for t in self.supported_towns.split(",") if t.strip())
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @model_validator(mode="after")
     def _refuse_insecure_secret_in_production(self) -> "Settings":

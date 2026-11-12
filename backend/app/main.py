@@ -2,8 +2,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.config import get_settings
 from app.errors import DomainError
 from app.routers import admin, artisans, auth, jobs, matching, requests, reviews, skills, verification
 
@@ -21,6 +23,16 @@ app = FastAPI(
         "**Verification in this prototype is SIMULATED** - no real-world identity or skill assessment is performed."
     ),
     lifespan=lifespan,
+)
+
+
+# Lets the browser-based frontend (a different origin/port) call this API. Auth uses Bearer tokens in a
+# header, not cookies, so credentials are not enabled. Set CORS_ORIGINS in .env for your real frontend URL.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_origin_list,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

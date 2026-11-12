@@ -30,7 +30,7 @@ ACbridge/
     │   ├── services/          # business rules: verification, matching, reputation, job (state machine)
     │   └── security/          # authentication (Argon2id, JWT), permissions (RBAC), rate_limit
     ├── scripts/demo.py        # runs the whole John & Mary journey against a live API
-    ├── tests/                 # pytest suite (56 tests)
+    ├── tests/                 # pytest suite (59 tests)
     ├── requirements.txt  .env.example  docker-compose.yml  pytest.ini
 ```
 
@@ -40,6 +40,45 @@ and a handful of extra columns the rules need: `skills.safety_critical`, `artisa
 (price matching), `artisan_profiles.is_suspended`, `verification_checks.skill_id` (verification is
 per-skill) and `verification_checks.evidence_file_path` (private uploads). `jobs` are created by the
 customer choosing an artisan (`POST /jobs`) because `jobs.status` starts at `REQUESTED`.
+
+## Using this with your existing frontend
+
+Recommended layout: **one folder, two apps**, so they travel together in one git repo.
+
+```
+ACbridge/
+├── frontend/     <- your existing frontend (move/copy it here)
+└── backend/      <- this repo's backend
+```
+
+**Get the backend onto your computer** (pick one):
+
+* *Already have the repo cloned:* `git fetch origin && git checkout feature/backend-mvp` (or `git pull`).
+* *Starting from your frontend folder:* put the frontend in `frontend/`, `git init` / clone ACbridge around it,
+  then `git checkout feature/backend-mvp` and keep both folders committed together.
+* *No git:* download the zip from GitHub (**Code → Download ZIP**, with the branch `feature/backend-mvp`
+  selected) and copy its `backend/` folder next to your `frontend/` folder.
+
+**Keeping them in sync**
+
+1. **Base URL.** The API runs at `http://localhost:8000`. Point the frontend at it with an env variable,
+   e.g. Vite `VITE_API_URL=http://localhost:8000` / Next.js `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+2. **CORS.** The browser blocks calls to another port unless the backend allows the frontend's origin.
+   Defaults already allow `localhost`/`127.0.0.1` on ports **5173** (Vite) and **3000** (CRA/Next).
+   Any other port or domain: set `CORS_ORIGINS` in `backend/.env` (exact scheme+host+port) and restart.
+3. **Auth.** `POST /auth/login` → `access_token`. Send `Authorization: Bearer <token>` on every other call.
+   Store the token in memory/`sessionStorage`; on `401` send the user back to login.
+4. **The contract.** `backend/openapi.json` lists every endpoint, request body and response shape.
+   Use it to check the frontend's calls or generate a typed client
+   (e.g. `npx openapi-typescript backend/openapi.json -o frontend/src/api-types.ts`).
+   A test fails when the API changes without regenerating it:
+   `cd backend && python -m scripts.export_openapi`.
+5. **Errors.** Failures return `{"detail": "..."}`; validation errors (`422`) return `detail` as a list.
+   Show the string to the user. IDs are UUID strings; money is integer FCFA; dates are ISO-8601 UTC.
+6. **Run both:** terminal 1 `cd backend && uvicorn app.main:app --reload`; terminal 2 `cd frontend && npm run dev`.
+
+> If your frontend already calls endpoints with different names or fields than this API, share its
+> folder (or the list of calls it makes) and the two sides can be aligned deliberately.
 
 ## 1. Architecture
 
@@ -121,7 +160,7 @@ pytest                                   # in-memory SQLite, no setup, ~35 s
 TEST_DATABASE_URL=postgresql+psycopg://acbridge:acbridge@localhost:5432/acbridge_test pytest   # real PostgreSQL
 ```
 
-Both modes pass (**56 on PostgreSQL; SQLite runs 55 and skips the concurrency test**, because
+Both modes pass (**59 on PostgreSQL; SQLite runs 58 and skips the concurrency test**, because
 row locks need PostgreSQL). The tests cover every rule in the brief: auth, self-endorsement,
 unauthorised verification, the approval workflow, eligibility/ranking maths, job state machine,
 duplicate/unrelated confirmations, review rules, Bayesian reputation, DB-level constraints
