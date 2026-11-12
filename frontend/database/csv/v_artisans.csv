@@ -1,0 +1,8 @@
+﻿artisan_id,full_name,phone,location,availability_status,skill_name,proficiency_level,skill_verification,typical_price,endorsements
+aeae790d1ff249e586504569874f9899,Paul Tabi,+237690000011,"Molyko, Buea",AVAILABLE,Electrical Repair,EXPERT,VERIFIED,12000,2
+68b264f65adc4892adfcb12cfc954ce8,Samuel Ngwa,+237690000012,"Small Soppo, Buea",AVAILABLE,Electrical Repair,INTERMEDIATE,UNVERIFIED,7000,0
+2ed83bebe9084a788fd04e2cd33a6f5a,Esther Mbah,+237690000013,"Small Soppo, Buea",UNAVAILABLE,Electrical Repair,EXPERT,VERIFIED,9000,2
+af2b6b6ef7f549748577d29a7cc3e010,Ngu Peter,+237690000014,"Down Beach, Limbe",AVAILABLE,Electrical Repair,EXPERT,VERIFIED,8000,2
+e5e42f9f608f4851b373428dec5ba483,Grace Ndifor,+237690000015,"Molyko, Buea",AVAILABLE,Plumbing,EXPERT,VERIFIED,6000,2
+4351ed1cebfb4c618ca2d682eacc06ec,Mama Rose,+237690000016,"Great Soppo, Buea",AVAILABLE,Tailoring,EXPERT,UNVERIFIED,3000,0
+3fc4f7511206424d8702a3a386bee843,John Fon,+237670777999,"Small Soppo, Buea",AVAILABLE,Plumbing,INTERMEDIATE,PENDING,6000,2

@@ -410,4 +410,6 @@ export const fr: Dict = {
   'sms.offerExpired': "ACbridge : {artisan} n'a pas accepté à temps, votre demande est annulée. Choisissez un autre artisan.",
   'sms.offerLost': "ACbridge : vous n'avez pas accepté à temps le travail de {customer}, l'offre est annulée.",
   'audit.job_expired': "Offre à {artisan} expirée (urgence : {urgency}) : pas acceptée à temps",
+  'operator.export': "Exporter",
+  'operator.exportHint': "Télécharge tout le contenu de la démo (comptes, demandes, paiements, grand livre...) en fichier. Transformez-le en base de données avec : node --no-warnings database/build-demo-db.mjs acbridge-demo-data.json",
 };

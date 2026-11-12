@@ -1,0 +1,4 @@
+﻿payout_id,artisan_name,amount,commission,status,note,provider_reference,job_id
+8b85f34400d246be8bd1e8179da5ad37,Grace Ndifor,5700,300,PAID,,SIM-PAYOUT-8b85f34400d2,cfb06b0b07f448bd828036959e1722f4
+46b5719cdb8846bdbe5f31d43820c0b7,Paul Tabi,11400,600,PENDING,,,f33a9ee085fc41d6ae15ad5de651f3cb
+80f95313961f4959a753f18e07bae179,Ngu Peter,7600,400,HELD,"operator: Customer reported a problem, checking with both sides",,53752561e0354e1d8a5b2b911d0ae46b

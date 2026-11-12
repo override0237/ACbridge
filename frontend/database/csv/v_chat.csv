@@ -1,0 +1,7 @@
+﻿created_at,job_id,sender_role,body,proposed_price
+2026-11-12 15:30:44.779772,cfb06b0b07f448bd828036959e1722f4,CUSTOMER,"Hello Grace, can you do it cheaper?",
+2026-11-12 15:30:44.809923,cfb06b0b07f448bd828036959e1722f4,ARTISAN,I can do it for 7 000 FCFA,
+2026-11-12 15:30:44.827842,cfb06b0b07f448bd828036959e1722f4,CUSTOMER,Final price: 6000 FCFA,6000
+2026-11-12 15:30:45.273518,f33a9ee085fc41d6ae15ad5de651f3cb,CUSTOMER,Can you come tomorrow? 12000 FCFA,12000
+2026-11-12 15:30:46.189998,1f8ab195c49343a2b2a0f12d90246df8,CUSTOMER,"Hello, are you available this month?",
+2026-11-12 15:30:46.212293,1f8ab195c49343a2b2a0f12d90246df8,ARTISAN,Yes. I would charge 9 000 FCFA,

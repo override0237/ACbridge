@@ -194,3 +194,7 @@ A job offer that the artisan has not answered is **nullified** after a window th
 - The artisan's inbox shows the deadline and a countdown. After it passes the offer shows **Offer expired**, YES/NO disappear, a late YES lapses instead of accepting, the chat and Payments close, the customer is told by SMS to choose another artisan and the artisan is told the offer was lost. An `expiry` entry is written to the operator audit log.
 - Only an unanswered offer expires: once the artisan has said YES (or NO) the offer is answered and never expires later.
 - Rule: `src/domain/offers.ts` (checked on load, every 30 seconds, and again at the moment of answering). Backend: `urgency` on service requests, `OFFER_TTL_HOURS_TODAY/_THIS_WEEK/_NOT_URGENT`, `offer_expires_at` on jobs, lazy expiry when a job is read or accepted (`JOB_OFFER_EXPIRED` event, job `CANCELLED`) and `POST /admin/expire-offers` to sweep all stale offers.
+
+## Database folder
+
+See [database/README.md](database/README.md): a browsable SQLite copy of the backend database (accounts, requests, payments, ledger...), `database/browse.html` to read it by double-click, and an **Export data** button in the Operator screen that turns what you create in the demo into its own database.

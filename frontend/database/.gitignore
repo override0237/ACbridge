@@ -1,0 +1,4 @@
+# files you generate yourself from the browser demo
+demo-from-browser.*
+csv-from-browser/
+acbridge-demo-data.json

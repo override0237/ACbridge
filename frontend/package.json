@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build && node scripts/inline.mjs",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:browse": "node --no-warnings database/make-browser.mjs database/acbridge.db database/browse.html \"ACbridge backend database (simulated data)\"",
+    "db:from-browser": "node --no-warnings database/build-demo-db.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

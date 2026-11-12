@@ -7,6 +7,7 @@ import { VOUCHES_REQUIRED } from '../config';
 import { SEED_OPERATOR } from '../data/seed';
 import { countValidVouches, formatScore, isVerified, trustFor } from '../domain/rules';
 import { balances } from '../domain/ledger';
+import { downloadSnapshot } from '../domain/export';
 import { verifyLedger } from '../domain/security';
 import { money, renderParams } from '../i18n/format';
 import type { AuditEntry } from '../domain/types';
@@ -128,6 +129,8 @@ export function Operator() {
         ) : (
           <Button variant="danger" icon="♻️" label={t('operator.reset')} onClick={() => setConfirmReset(true)} />
         )}
+        <Button variant="secondary" icon="💾" label={t('operator.export')} onClick={() => downloadSnapshot(state)} />
+        <p className="muted small">{t('operator.exportHint')}</p>
         <Button variant="ghost" icon="🔒" label={t('operator.lock')} onClick={() => setUnlocked(false)} />
       </div>
     </Screen>
