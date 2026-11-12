@@ -11,12 +11,13 @@ const seeds = (): Artisan[] => SEED_ARTISANS.map((a) => ({ ...a }));
 const newbie = (): Artisan => ({
   id: 'n1', name: 'Newbie', phone: '+237670000999', trade: 'plumbing', neighbourhood: 'Neighbourhood A', description: '',
   baseRating: 0, baseJobs: 0, avgResponseMin: 20, priceMin: 3000, priceMax: 8000, seedVerified: false, isSeed: false,
+  username: 'newbie', salt: 's', passwordHash: 'h',
 });
 const vouch = (artisanId: string, voucher: Artisan, id = voucher.id, workedTogether = true): Vouch =>
-  ({ id: `v-${id}`, artisanId, voucherId: voucher.id, voucherPhone: voucher.phone, workedTogether, at: '' });
+  ({ id: `v-${id}`, artisanId, voucherId: voucher.id, voucherPhone: voucher.phone, workedTogether, at: '', seal: '', prevHash: '', hash: '' });
 const job = (over: Partial<Job> = {}): Job => ({
   id: 'j1', requestId: 'r1', artisanId: 'seed-1', customerPhone: '+237690000030', status: 'ACCEPTED',
-  codeHash: hashCode('123456'), codeUsed: false, createdAt: '', ...over,
+  codeHash: hashCode('123456'), codeUsed: false, price: 5000, createdAt: '', ...over,
 });
 
 describe('verification', () => {

@@ -107,3 +107,21 @@ fieldset { border: 0; padding: 0; margin: 0; } legend { font-weight: 700; margin
   .sms { position: sticky; top: 76px; }
   .sms-toggle { display: none; } .sms-body { display: block; padding-top: .6rem; }
 }
+
+/* payment breakdown */
+.price { border: 2px solid var(--line); border-radius: 12px; padding: .6rem .8rem; background: #fff; display: flex; flex-direction: column; gap: .3rem; }
+.price-row { display: flex; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.price-cut { color: var(--bad); }
+.price-net { border-top: 2px solid var(--line); padding-top: .3rem; color: var(--good); font-size: 1.1rem; }
+.price-done { border-color: var(--good); background: var(--good-bg); }
+
+/* accounts and vouch seals */
+.logged { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 0; }
+.seal-card { border: 3px double var(--brand); background: linear-gradient(180deg, #f3f9ff, #fff); }
+.seal-chip { display: inline-block; font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--brand); border: 2px solid var(--brand); border-radius: 8px; padding: 0 .4rem; background: #fff; }
+.seal-ok { background: var(--good-bg); color: var(--good); border: 2px solid var(--good); border-radius: 10px; padding: .6rem .8rem; font-weight: 700; margin: 0; }
+.candidate { border-top: 1px solid var(--line); padding-top: .5rem; display: flex; flex-direction: column; gap: .4rem; }
+.warn-text { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: .5rem .7rem; font-weight: 700; }
+.check { flex-direction: row; align-items: center; gap: .6rem; min-height: 48px; }
+.check input { width: 28px; min-height: 28px; height: 28px; }
+h3 { font-size: 1.05rem; margin: .5rem 0 .2rem; }

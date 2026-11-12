@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Badge, Card } from '../components/Card';
 import { Button } from '../components/Button';
+import { PriceBreakdown } from '../components/PriceBreakdown';
 import { Screen } from '../components/Screen';
 import type { Key } from '../i18n';
 import { useStore } from '../store';
+import { ArtisanLogin } from './ArtisanLogin';
 
 const ERRORS: Record<string, Key> = {
   wrong_code: 'complete.errWrong', bad_format: 'complete.errFormat', not_accepted: 'complete.errNone', already_used: 'complete.errUsed',
@@ -15,8 +17,9 @@ export function ArtisanComplete() {
   const [error, setError] = useState<Key | null>(null);
 
   const actingId = state.ui.actingArtisanId;
+  // Only the logged-in artisan's own jobs are reachable here.
   const job =
-    state.jobs.find((j) => j.id === state.ui.jobId && j.status !== 'DECLINED' && j.status !== 'REQUESTED') ??
+    state.jobs.find((j) => j.id === state.ui.jobId && j.artisanId === actingId && j.status !== 'DECLINED' && j.status !== 'REQUESTED') ??
     state.jobs.find((j) => j.artisanId === actingId && j.status === 'ACCEPTED');
   const req = job && state.requests.find((r) => r.id === job.requestId);
 
@@ -26,6 +29,8 @@ export function ArtisanComplete() {
     const r = actions.complete(job.id, code);
     if (!r.ok) { setError(ERRORS[r.reason]); setCode(''); } else setError(null);
   };
+
+  if (!actingId) return <ArtisanLogin next="artisanComplete" />;
 
   if (!job) {
     return (
@@ -40,6 +45,7 @@ export function ArtisanComplete() {
     <Screen title={t('complete.title')} instruction={t('complete.instruction')} back="artisanInbox">
       <Card>
         <p><strong>{t('complete.forJob', { customer: req?.customerName ?? '' })}</strong></p>
+        <PriceBreakdown price={job.price} rate={job.commissionRate} done={done} />
         {done ? (
           <>
             <p role="status"><Badge icon="🏁" text={t('complete.success')} tone="good" /></p>

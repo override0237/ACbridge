@@ -1,10 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { API_MODE, NEIGHBOURHOOD } from '../config';
 import { resolveTrade } from '../domain/trades';
-import { SEED_CUSTOMER, SEED_VOUCHERS } from '../data/seed';
+import { SEED_CUSTOMER } from '../data/seed';
+import { agreedPrice } from '../domain/money';
 import {
   checkCompletion, checkRating, checkVouch, generateJobCode, normalizePhone, type CompletionCheck, type RatingCheck,
 } from '../domain/rules';
+import { checkNewCredentials, makeCredentials, verifyLogin } from '../domain/security';
+import { rememberPassword } from '../api/client';
 import type { Artisan, Lang, Urgency } from '../domain/types';
 import { translate, type Key, type Params } from '../i18n';
 import * as bridge from '../api/bridge';
@@ -20,14 +23,17 @@ export type VouchResult = { ok: true } | { ok: false; error: Key };
 
 const VOUCH_ERRORS: Record<string, Key> = {
   self: 'status.errSelf', not_verified: 'status.errNotVerified', same_phone: 'status.errSamePhone',
-  duplicate: 'status.errDuplicate', no_job_together: 'status.errNoJob',
+  duplicate: 'vouch.errDuplicate', no_job_together: 'status.errNoJob',
 };
 
 export interface Actions {
   setLang(l: Lang): void;
   go(screen: Screen, patch?: Partial<UiState>): void;
-  registerArtisan(v: { name: string; phone: string; trade: string; description: string }): RegisterResult;
-  vouch(artisanId: string, seedIndex: number): VouchResult;
+  registerArtisan(v: { name: string; phone: string; trade: string; description: string; username: string; password: string; confirm: string }): RegisterResult;
+  loginArtisan(username: string, password: string, next?: Screen): { ok: true } | { ok: false; error: Key };
+  logout(): void;
+  /** Seals a vouch from `voucherId` for `artisanId`. A pair can only ever be sealed once. */
+  vouch(artisanId: string, voucherId: string, workedTogether?: boolean): VouchResult;
   submitRequest(v: { trade: string; urgency: Urgency; description: string }): { ok: true } | { ok: false; error: Key };
   choose(artisanId: string): void;
   answer(jobId: string, accept: boolean): void;
@@ -69,12 +75,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setLang: (lang) => dispatch({ type: 'setLang', lang }),
       go: (screen, patch) => dispatch({ type: 'nav', screen, patch }),
 
-      registerArtisan({ name, phone, trade, description }) {
+      registerArtisan({ name, phone, trade, description, username, password, confirm }) {
         const s = ref.current;
         const cleanName = name.trim();
         if (cleanName.length < 2) return { ok: false, error: 'signup.errName' };
         const tradeKey = resolveTrade(trade);
         if (!tradeKey) return { ok: false, error: 'signup.errTrade' };
+        const creds = checkNewCredentials(username, password, confirm, s.artisans);
+        if (!creds.ok) {
+          const map = { username_format: 'signup.errUsername', username_taken: 'signup.errUsernameTaken', password_short: 'signup.errPassword', password_mismatch: 'signup.errConfirm' } as const;
+          return { ok: false, error: map[creds.reason] };
+        }
         const normalized = normalizePhone(phone);
         if (!normalized) return { ok: false, error: 'signup.errPhone' };
         if (s.artisans.some((a) => a.phone === normalized)) return { ok: false, error: 'signup.errTaken' };
@@ -82,7 +93,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           id: uid('artisan'), name: cleanName, phone: normalized, trade: tradeKey, neighbourhood: NEIGHBOURHOOD,
           description: description.trim(), baseRating: 0, baseJobs: 0, avgResponseMin: 20,
           priceMin: 3000, priceMax: 8000, seedVerified: false, isSeed: false,
+          ...makeCredentials(username, password, uid('salt')),
         };
+        rememberPassword(normalized, password);
         dispatch({ type: 'register', artisan, at: now(), ids: ids(4) });
         void mirror(async () => {
           const remoteId = await bridge.registerArtisan(artisan);
@@ -91,14 +104,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { ok: true, id: artisan.id };
       },
 
-      vouch(artisanId, seedIndex) {
+      loginArtisan(username, password, next) {
+        const artisan = verifyLogin(ref.current.artisans, username, password);
+        if (!artisan) return { ok: false, error: 'login.errWrong' }; // one message for unknown user and wrong password
+        rememberPassword(artisan.phone, password);
+        dispatch({ type: 'login', artisanId: artisan.id, next: next ?? ref.current.ui.loginNext ?? 'artisanStatus' });
+        return { ok: true };
+      },
+
+      logout: () => dispatch({ type: 'logout' }),
+
+      vouch(artisanId, voucherId, workedTogether = true) {
         const s = ref.current;
         const artisan = find(s.artisans, artisanId);
-        const voucher = find(s.artisans, SEED_VOUCHERS[seedIndex]);
+        const voucher = find(s.artisans, voucherId);
         if (!artisan || !voucher) return { ok: false, error: 'status.noArtisan' };
-        const check = checkVouch(artisan, voucher, true, s.vouches); // demo voucher attests a job together
-        if (!check.ok) return { ok: false, error: VOUCH_ERRORS[check.reason] };
-        dispatch({ type: 'vouch', artisanId, voucherId: voucher.id, workedTogether: true, vouchId: uid('vouch'), at: now(), ids: ids(4) });
+        const check = checkVouch(artisan, voucher, workedTogether, s.vouches);
+        if (!check.ok) {
+          // A repeated vouch is a security event: refuse it AND record the attempt in the audit log.
+          if (check.reason === 'duplicate') dispatch({ type: 'vouchBlocked', artisanId, voucherId, at: now(), id: uid('sec') });
+          return { ok: false, error: VOUCH_ERRORS[check.reason] };
+        }
+        dispatch({ type: 'vouch', artisanId, voucherId: voucher.id, workedTogether, vouchId: uid('vouch'), at: now(), ids: ids(5) });
         void mirror(async () => {
           // wait for the profile to be linked (registration mirror runs first)
           const linked = await waitForRemote(() => find(ref.current.artisans, artisanId));
@@ -130,12 +157,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const requestId = s.ui.requestId;
         if (!requestId) return;
         const jobId = uid('job');
-        dispatch({ type: 'choose', jobId, requestId, artisanId, at: now(), ids: ids(1) });
+        const chosen = find(s.artisans, artisanId);
+        if (!chosen) return;
+        dispatch({ type: 'choose', jobId, requestId, artisanId, price: agreedPrice(chosen), at: now(), ids: ids(1) });
         void mirror(async () => {
           const req = find(ref.current.requests, requestId);
           const artisan = find(ref.current.artisans, artisanId);
           if (!req || !artisan) return;
-          const remoteId = await bridge.chooseArtisan(req, artisan);
+          const remoteId = await bridge.chooseArtisan(req, artisan, agreedPrice(artisan));
           if (remoteId) dispatch({ type: 'patchJob', id: jobId, patch: { remoteId } });
         });
       },
@@ -157,7 +186,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!job) return { ok: false, reason: 'not_accepted' };
         const result = checkCompletion(job, entered);
         if (!result.ok) return result;
-        dispatch({ type: 'complete', jobId, entered, at: now(), ids: ids(2) });
+        dispatch({ type: 'complete', jobId, entered, at: now(), ids: ids(4) });
         void mirror(async () => {
           const artisan = find(ref.current.artisans, job.artisanId);
           if (artisan) await bridge.completeJob(job, artisan);

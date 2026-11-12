@@ -1,6 +1,8 @@
 import { initialState, type State } from './reducer';
 
-const KEY = 'acbridge.demo.v1';
+/** v2: artisans now carry credentials and vouches carry seals, so v1 data is not reused. */
+export const STORAGE_KEY = 'acbridge.demo.v2';
+const KEY = STORAGE_KEY;
 
 export function loadState(): State {
   try {

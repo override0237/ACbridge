@@ -2,6 +2,9 @@ import { Badge, Card } from '../components/Card';
 import { Screen } from '../components/Screen';
 import { StarRating } from '../components/StarRating';
 import { completedJobs, countValidVouches, formatScore, isVerified, priceRangeLabel, trustFor } from '../domain/rules';
+import { COMMISSION_RATE } from '../config';
+import { netRange } from '../domain/money';
+import { money } from '../i18n/format';
 import { tradeLabel } from '../i18n/trade';
 import { useStore } from '../store';
 
@@ -27,6 +30,7 @@ export function ArtisanProfile() {
           <dt>{t('profile.jobs')}</dt><dd>{completedJobs(artisan, state.jobs)}</dd>
           <dt>{t('profile.vouches')}</dt><dd>{artisan.isSeed ? '✔' : countValidVouches(artisan, state.vouches, state.artisans)}</dd>
           <dt>{t('profile.price')}</dt><dd>{priceRangeLabel(artisan, t('common.currency'), locale)}</dd>
+          <dt>{t('money.netRange', { rate: COMMISSION_RATE * 100 })}</dt><dd>{money(netRange(artisan).min, state.lang)} – {money(netRange(artisan).max, state.lang)} {t('common.currency')}</dd>
         </dl>
         {artisan.description && <p className="quote">“{artisan.description}”</p>}
       </Card>

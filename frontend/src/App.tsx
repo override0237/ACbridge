@@ -1,9 +1,11 @@
-import type { ReactElement } from 'react';
+import type { ComponentType } from 'react';
 import { LanguageToggle } from './components/LanguageToggle';
 import { SmsLog } from './components/SmsLog';
 import { API_MODE } from './config';
 import { translate } from './i18n';
 import { ArtisanComplete } from './screens/ArtisanComplete';
+import { ArtisanEntry } from './screens/ArtisanEntry';
+import { ArtisanLogin } from './screens/ArtisanLogin';
 import { ArtisanInbox } from './screens/ArtisanInbox';
 import { ArtisanProfile } from './screens/ArtisanProfile';
 import { ArtisanSignup } from './screens/ArtisanSignup';
@@ -15,10 +17,13 @@ import { Operator } from './screens/Operator';
 import { Rate } from './screens/Rate';
 import { Tracking } from './screens/Tracking';
 import { StoreProvider, useStore } from './store';
+import { STORAGE_KEY } from './store/persistence';
 import type { Screen } from './store/reducer';
 
-const SCREENS: Record<Screen, () => ReactElement> = {
+const SCREENS: Record<Screen, ComponentType> = {
   home: Home,
+  artisanEntry: ArtisanEntry,
+  artisanLogin: ArtisanLogin,
   artisanSignup: ArtisanSignup,
   artisanStatus: ArtisanStatus,
   artisanInbox: ArtisanInbox,
@@ -38,7 +43,7 @@ function toggleBackend(): void {
   url.searchParams.set('api', next);
   window.location.href = url.toString();
 }
-const loadLang = (): 'fr' | 'en' => { try { return (JSON.parse(localStorage.getItem('acbridge.demo.v1') ?? '{}').lang as 'fr' | 'en') ?? 'fr'; } catch { return 'fr'; } };
+const loadLang = (): 'fr' | 'en' => { try { return (JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').lang as 'fr' | 'en') ?? 'fr'; } catch { return 'fr'; } };
 
 function Shell() {
   const { state, actions, t, notice, clearNotice } = useStore();

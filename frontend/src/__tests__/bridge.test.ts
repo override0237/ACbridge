@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const joel: Artisan = { ...SEED_ARTISANS[0], id: 'new', name: 'Joel', phone: '+237670111222', isSeed: false, seedVerified: false };
+const joel: Artisan = { ...SEED_ARTISANS[0], id: 'new', name: 'Joel', phone: '+237670111222', isSeed: false, seedVerified: false, username: 'joel' };
 const grace = SEED_ARTISANS[0];
 
 describe('API bridge calls only routes the backend defines', () => {
@@ -49,9 +49,9 @@ describe('API bridge calls only routes the backend defines', () => {
     const req: ServiceRequest = { id: 'r', customerPhone: '+237690000030', customerName: 'Mary', trade: 'plumbing', neighbourhood: 'Neighbourhood A', urgency: 'today', description: '', at: '' };
     const created = await bridge.createRequest(req, [...SEED_ARTISANS]);
     expect(created.links['seed-1']).toBe('eeeeeeee-5555'); // Grace linked by name
-    const jobId = await bridge.chooseArtisan({ ...req, remoteId: created.requestId }, { ...grace, remoteId: 'eeeeeeee-5555' });
+    const jobId = await bridge.chooseArtisan({ ...req, remoteId: created.requestId }, { ...grace, remoteId: 'eeeeeeee-5555' }, 5500);
     expect(jobId).toBe('ffffffff-6666');
-    const job: Job = { id: 'j', requestId: 'r', artisanId: 'seed-1', customerPhone: req.customerPhone, status: 'ACCEPTED', codeHash: 'x', codeUsed: false, createdAt: '', remoteId: jobId! };
+    const job: Job = { id: 'j', requestId: 'r', artisanId: 'seed-1', customerPhone: req.customerPhone, status: 'ACCEPTED', codeHash: 'x', codeUsed: false, price: 5500, createdAt: '', remoteId: jobId! };
     await bridge.acceptJob(job, grace);
     await bridge.completeJob(job, grace);
     await bridge.review(job, 5, 'Good');

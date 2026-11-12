@@ -6,6 +6,10 @@ export interface Artisan {
   id: string;
   name: string;
   phone: string;
+  /** Login name (lower case, unique) and salted password hash. The password itself is never stored. */
+  username: string;
+  salt: string;
+  passwordHash: string;
   /** Catalogue key (see domain/trades.ts) or normalised free text. */
   trade: string;
   neighbourhood: string;
@@ -33,6 +37,10 @@ export interface Vouch {
   /** Voucher attests they completed a job with this artisan. */
   workedTogether: boolean;
   at: string;
+  /** Vouch Seal: human-readable seal code, previous link and this link of the tamper-evident chain. */
+  seal: string;
+  prevHash: string;
+  hash: string;
 }
 
 export interface ServiceRequest {
@@ -55,6 +63,11 @@ export interface Job {
   status: JobStatus;
   codeHash: string | null;
   codeUsed: boolean;
+  /** Simulated agreed price (FCFA) and, once completed, the commission taken from the artisan. */
+  price: number;
+  commissionRate?: number;
+  commission?: number;
+  payout?: number;
   createdAt: string;
   acceptedAt?: string;
   completedAt?: string;
@@ -78,7 +91,7 @@ export interface SmsMessage {
   at: string;
 }
 
-export type AuditKind = 'verification' | 'job_accepted' | 'job_completed' | 'rating' | 'trust';
+export type AuditKind = 'verification' | 'job_accepted' | 'job_completed' | 'transaction' | 'rating' | 'trust' | 'security';
 export interface AuditEntry {
   id: string;
   kind: AuditKind;

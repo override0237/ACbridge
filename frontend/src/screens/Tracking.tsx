@@ -1,5 +1,6 @@
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
+import { PriceBreakdown } from '../components/PriceBreakdown';
 import { Screen } from '../components/Screen';
 import type { Key } from '../i18n';
 import { useStore } from '../store';
@@ -41,11 +42,14 @@ export function Tracking() {
         </ol>
         <p role="status" className="notice">{msg}</p>
       </Card>
+      {!declined && <PriceBreakdown price={job.price} rate={job.commissionRate} done={job.status === 'COMPLETED'} />}
       <div className="stack">
         {declined && <Button big icon="🔁" label={t('tracking.again')} onClick={() => actions.go('matches')} />}
         {job.status === 'COMPLETED' && !rated && <Button big icon="⭐" label={t('tracking.rate')} onClick={() => actions.go('rate')} />}
         {!declined && !rated && job.status !== 'COMPLETED' && (
-          <Button variant="secondary" icon="🛠️" label={t('tracking.asArtisan')} onClick={() => actions.go('artisanInbox', { actingArtisanId: job.artisanId })} />
+          <Button variant="secondary" icon="🛠️" label={t('tracking.asArtisan')} onClick={() => (state.ui.actingArtisanId === job.artisanId
+            ? actions.go('artisanInbox')
+            : actions.go('artisanLogin', { actingArtisanId: null, loginNext: 'artisanInbox' }))} />
         )}
         <Button variant="ghost" icon="👤" label={t('tracking.profile')} onClick={() => actions.go('profile', { profileId: job.artisanId, back: 'tracking' })} />
       </div>

@@ -5,6 +5,8 @@ import { Screen } from '../components/Screen';
 import { VOUCHES_REQUIRED } from '../config';
 import { SEED_OPERATOR } from '../data/seed';
 import { countValidVouches, formatScore, isVerified, trustFor } from '../domain/rules';
+import { verifyLedger } from '../domain/security';
+import { money, renderParams } from '../i18n/format';
 import type { AuditEntry } from '../domain/types';
 import type { Key } from '../i18n';
 import { tradeLabel } from '../i18n/trade';
@@ -37,10 +39,13 @@ export function Operator() {
   const pending = state.artisans.filter((a) => !a.rejected && !isVerified(a, state.vouches, state.artisans));
   const verified = state.artisans.filter((a) => isVerified(a, state.vouches, state.artisans));
   const locale = state.lang === 'fr' ? 'fr-FR' : 'en-US';
+  const ledger = verifyLedger(state.vouches);
+  const doneJobs = state.jobs.filter((j) => j.status === 'COMPLETED');
+  const earnings = doneJobs.reduce((sum, j) => sum + (j.commission ?? 0), 0);
 
   const describe = (e: AuditEntry): string => {
-    const k = (e.kind === 'verification' ? `audit.${e.params.event}` : `audit.${e.kind}`) as Key;
-    return t(k, e.params);
+    const k = (e.kind === 'verification' || e.kind === 'security' ? `audit.${e.params.event}` : `audit.${e.kind}`) as Key;
+    return t(k, renderParams(e.params, t, state.lang));
   };
 
   return (
@@ -58,6 +63,25 @@ export function Operator() {
             </div>
           </div>
         ))}
+      </Card>
+
+      <Card>
+        <h2>💰 {t('operator.earnings')}</h2>
+        <p className="big-number">{t('operator.earningsLine', { amount: money(earnings, state.lang), n: doneJobs.length })}</p>
+      </Card>
+
+      <Card className="seal-card">
+        <h2>🔒 {t('ledger.title')}</h2>
+        {ledger.ok
+          ? <p role="status"><Badge icon="🛡️" text={t('ledger.intact')} tone="good" /></p>
+          : <p role="alert" className="error">🚨 {t('ledger.broken', { n: ledger.index + 1 })}</p>}
+        {state.vouches.length === 0 ? <p className="muted">{t('ledger.empty')}</p> : (
+          <ol className="plain">
+            {state.vouches.map((v) => (
+              <li key={v.id}>🔗 {state.artisans.find((a) => a.id === v.voucherId)?.name} → {state.artisans.find((a) => a.id === v.artisanId)?.name} <span className="seal-chip">{v.seal}</span></li>
+            ))}
+          </ol>
+        )}
       </Card>
 
       <Card>

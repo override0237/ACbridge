@@ -2,12 +2,14 @@ import type {
   Artisan, AuditEntry, AuditKind, Job, Lang, Rating, ServiceRequest, SmsMessage, Urgency, Vouch,
 } from '../domain/types';
 import { SEED_ARTISANS, SEED_CUSTOMER } from '../data/seed';
+import { computeCommission } from '../domain/money';
 import {
   checkCompletion, checkRating, checkVouch, formatScore, hashCode, isVerified, trustFor,
 } from '../domain/rules';
+import { lastHash, sealVouch } from '../domain/security';
 
 export type Screen =
-  | 'home' | 'artisanSignup' | 'artisanStatus' | 'artisanInbox' | 'artisanComplete'
+  | 'home' | 'artisanEntry' | 'artisanLogin' | 'artisanSignup' | 'artisanStatus' | 'artisanInbox' | 'artisanComplete'
   | 'customerRequest' | 'matches' | 'tracking' | 'rate' | 'operator' | 'profile';
 
 export interface UiState {
@@ -17,6 +19,8 @@ export interface UiState {
   jobId: string | null;
   profileId: string | null;
   back: Screen;
+  /** Where to go after a successful artisan login. */
+  loginNext?: Screen | null;
 }
 
 export interface State {
@@ -49,9 +53,12 @@ export type Action =
   | { type: 'setLang'; lang: Lang }
   | { type: 'nav'; screen: Screen; patch?: Partial<UiState> }
   | { type: 'register'; artisan: Artisan; at: string; ids: string[] }
+  | { type: 'login'; artisanId: string; next: Screen }
+  | { type: 'logout' }
+  | { type: 'vouchBlocked'; artisanId: string; voucherId: string; at: string; id: string }
   | { type: 'vouch'; artisanId: string; voucherId: string; workedTogether: boolean; vouchId: string; at: string; ids: string[] }
   | { type: 'request'; request: ServiceRequest }
-  | { type: 'choose'; jobId: string; requestId: string; artisanId: string; at: string; ids: string[] }
+  | { type: 'choose'; jobId: string; requestId: string; artisanId: string; price: number; at: string; ids: string[] }
   | { type: 'answer'; jobId: string; accept: boolean; code: string; at: string; ids: string[] }
   | { type: 'complete'; jobId: string; entered: string; at: string; ids: string[] }
   | { type: 'rate'; ratingId: string; jobId: string; score: number; comment: string; at: string; ids: string[] }
@@ -72,6 +79,19 @@ export function reducer(s: State, a: Action): State {
 
     case 'nav':
       return { ...s, ui: { ...s.ui, ...a.patch, screen: a.screen } };
+
+    case 'login':
+      return { ...s, ui: { ...s.ui, actingArtisanId: a.artisanId, screen: a.next, loginNext: null } };
+
+    case 'logout':
+      return { ...s, ui: { ...s.ui, actingArtisanId: null, loginNext: null, screen: 'home' } };
+
+    case 'vouchBlocked': {
+      const artisan = byId(s.artisans, a.artisanId);
+      const voucher = byId(s.artisans, a.voucherId);
+      if (!artisan || !voucher) return s;
+      return { ...s, audit: [...s.audit, audit(a.id, 'security', { event: 'vouch_blocked', voucher: voucher.name, name: artisan.name }, a.at)] };
+    }
 
     case 'register': {
       const art = a.artisan;
@@ -96,12 +116,16 @@ export function reducer(s: State, a: Action): State {
       const vouch: Vouch = {
         id: a.vouchId, artisanId: artisan.id, voucherId: voucher.id, voucherPhone: voucher.phone,
         workedTogether: a.workedTogether, at: a.at,
+        ...sealVouch(lastHash(s.vouches), artisan.id, voucher.id, a.at), // permanent seal, chained to the previous vouch
       };
       const vouches = [...s.vouches, vouch];
       const was = isVerified(artisan, s.vouches, s.artisans);
       const now = isVerified(artisan, vouches, s.artisans);
-      const out: SmsMessage[] = [sms(a.ids[0], artisan.phone, 'sms.vouchRecorded', { voucher: voucher.name }, a.at)];
-      const log: AuditEntry[] = [audit(a.ids[1], 'verification', { event: 'vouch', name: artisan.name, voucher: voucher.name }, a.at)];
+      const out: SmsMessage[] = [
+        sms(a.ids[0], artisan.phone, 'sms.vouchRecorded', { voucher: voucher.name, seal: vouch.seal }, a.at),
+        sms(a.ids[4], voucher.phone, 'sms.vouchSealed', { name: artisan.name, seal: vouch.seal }, a.at),
+      ];
+      const log: AuditEntry[] = [audit(a.ids[1], 'verification', { event: 'vouch', name: artisan.name, voucher: voucher.name, seal: vouch.seal }, a.at)];
       if (now && !was) {
         out.push(sms(a.ids[2], artisan.phone, 'sms.verified', {}, a.at));
         log.push(audit(a.ids[3], 'verification', { event: 'verified', name: artisan.name }, a.at));
@@ -118,7 +142,7 @@ export function reducer(s: State, a: Action): State {
       if (!artisan || !req) return s;
       const job: Job = {
         id: a.jobId, requestId: req.id, artisanId: artisan.id, customerPhone: req.customerPhone,
-        status: 'REQUESTED', codeHash: null, codeUsed: false, createdAt: a.at,
+        status: 'REQUESTED', codeHash: null, codeUsed: false, price: a.price, createdAt: a.at,
       };
       return {
         ...s,
@@ -152,11 +176,23 @@ export function reducer(s: State, a: Action): State {
       const job = byId(s.jobs, a.jobId);
       const artisan = job && byId(s.artisans, job.artisanId);
       if (!job || !artisan || !checkCompletion(job, a.entered).ok) return s;
+      // The transaction: the commission is taken from the artisan's side only.
+      const tx = computeCommission(job.price);
       return {
         ...s,
-        jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, status: 'COMPLETED', codeUsed: true, completedAt: a.at } : j)),
-        sms: [...s.sms, sms(a.ids[0], job.customerPhone, 'sms.jobCompleted', { artisan: artisan.name }, a.at)],
-        audit: [...s.audit, audit(a.ids[1], 'job_completed', { artisan: artisan.name }, a.at)],
+        jobs: s.jobs.map((j) => (j.id === job.id
+          ? { ...j, status: 'COMPLETED', codeUsed: true, completedAt: a.at, commissionRate: tx.rate, commission: tx.commission, payout: tx.payout }
+          : j)),
+        sms: [
+          ...s.sms,
+          sms(a.ids[0], job.customerPhone, 'sms.jobCompleted', { artisan: artisan.name, price: tx.price }, a.at),
+          sms(a.ids[2], artisan.phone, 'sms.payout', { price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout }, a.at),
+        ],
+        audit: [
+          ...s.audit,
+          audit(a.ids[1], 'job_completed', { artisan: artisan.name }, a.at),
+          audit(a.ids[3], 'transaction', { artisan: artisan.name, price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout }, a.at),
+        ],
       };
     }
 

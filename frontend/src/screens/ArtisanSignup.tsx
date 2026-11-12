@@ -18,6 +18,9 @@ export function ArtisanSignup() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [trade, setTrade] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<Key | null>(null);
   const [listening, setListening] = useState(false);
@@ -26,7 +29,7 @@ export function ArtisanSignup() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const r = actions.registerArtisan({ name, phone, trade, description });
+    const r = actions.registerArtisan({ name, phone, trade, description, username, password, confirm });
     if (!r.ok) setError(r.error);
   };
 
@@ -52,6 +55,15 @@ export function ArtisanSignup() {
         </label>
         <label>{t('signup.phone')}
           <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" autoComplete="tel" placeholder={t('signup.phoneHint')} required />
+        </label>
+        <label>{t('signup.username')}
+          <input value={username} onChange={(e) => { setUsername(e.target.value); setError(null); }} autoComplete="username" autoCapitalize="none" placeholder={t('signup.usernameHint')} required />
+        </label>
+        <label>{t('signup.password')}
+          <input type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(null); }} autoComplete="new-password" placeholder={t('signup.passwordHint')} required />
+        </label>
+        <label>{t('signup.confirm')}
+          <input type="password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(null); }} autoComplete="new-password" required />
         </label>
         <TradeField label={t('signup.trade')} value={trade} onChange={(v) => { setTrade(v); setError(null); }} />
         <label>{t('signup.neighbourhood')}<input value={t('common.neighbourhood')} readOnly /></label>

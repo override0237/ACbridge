@@ -7,6 +7,13 @@ import { API_BASE, DEMO_PASSWORD } from '../config';
 
 const BASE = API_BASE ?? '/api';
 const tokens = new Map<string, string>(); // phone -> bearer token (memory only)
+const passwords = new Map<string, string>(); // phone -> password typed this session (memory only, never stored)
+
+/** Called when someone registers or logs in so the backend login uses their real password; seeded accounts use the demo one. */
+export function rememberPassword(phone: string, password: string): void {
+  passwords.set(phone, password);
+  tokens.delete(phone);
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -32,7 +39,7 @@ export interface ArtisanOut { artisan_id: string; full_name: string; identity_ve
 export interface MatchOut { artisan_id: string; full_name: string; typical_price: number | null; reputation_score: number; verified_reviews: number }
 export interface JobOut { job_id: string; status: string }
 
-export async function login(phone: string, password = DEMO_PASSWORD): Promise<string> {
+export async function login(phone: string, password = passwords.get(phone) ?? DEMO_PASSWORD): Promise<string> {
   const cached = tokens.get(phone);
   if (cached) return cached;
   const out = await call<TokenOut>('POST', '/auth/login', undefined, { phone, password });
@@ -42,7 +49,7 @@ export async function login(phone: string, password = DEMO_PASSWORD): Promise<st
 
 export const api = {
   health: () => call<{ status: string }>('GET', '/health'),
-  register: (phone: string, role: 'CUSTOMER' | 'ARTISAN', password = DEMO_PASSWORD) =>
+  register: (phone: string, role: 'CUSTOMER' | 'ARTISAN', password = passwords.get(phone) ?? DEMO_PASSWORD) =>
     call('POST', '/auth/register', undefined, { phone, password, role }),
   skills: () => call<SkillOut[]>('GET', '/skills'),
   createProfile: (t: string, body: { full_name: string; location: string; description?: string }) =>

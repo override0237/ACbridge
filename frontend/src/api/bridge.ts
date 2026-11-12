@@ -89,10 +89,10 @@ export async function createRequest(
   return { requestId: created.request_id, links };
 }
 
-export async function chooseArtisan(req: ServiceRequest, artisan: Artisan): Promise<string | null> {
+export async function chooseArtisan(req: ServiceRequest, artisan: Artisan, price: number): Promise<string | null> {
   if (!req.remoteId || !artisan.remoteId) return null;
   const t = await login(req.customerPhone);
-  const job = await api.createJob(t, req.remoteId, artisan.remoteId, Math.round((artisan.priceMin + artisan.priceMax) / 2));
+  const job = await api.createJob(t, req.remoteId, artisan.remoteId, price);
   return job.job_id;
 }
 
