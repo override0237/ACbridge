@@ -1,7 +1,9 @@
 """ACbridge API entry point. Run with:  uvicorn app.main:app --reload"""
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.errors import DomainError
@@ -21,6 +23,16 @@ app = FastAPI(
         "**Verification in this prototype is SIMULATED** - no real-world identity or skill assessment is performed."
     ),
     lifespan=lifespan,
+)
+
+
+# The demo front end (frontend/acbridge.html) may be opened from a file or another port, so allow browser calls.
+# Auth uses a bearer header, not cookies, so a wildcard origin is safe here. Restrict CORS_ORIGINS in production.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",")],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

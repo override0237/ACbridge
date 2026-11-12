@@ -41,14 +41,17 @@ export function ArtisanComplete() {
       <Card>
         <p><strong>{t('complete.forJob', { customer: req?.customerName ?? '' })}</strong></p>
         {done ? (
-          <p role="status"><Badge icon="🏁" text={t('complete.success')} tone="good" /></p>
+          <>
+            <p role="status"><Badge icon="🏁" text={t('complete.success')} tone="good" /></p>
+            <Button big icon="👤" label={t('complete.toCustomer')} onClick={() => actions.go('tracking', { jobId: job.id })} />
+          </>
         ) : (
           <>
             <label>{t('complete.codeField')}
               <input className="code-input" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="one-time-code"
                 value={code} onChange={(e) => { setError(null); setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); }} />
             </label>
-            <div className="keypad" role="group" aria-label={t('complete.codeField')}>
+            <div className="keypad" role="group" aria-label={t('complete.keypad')}>
               {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
                 <button key={d} type="button" className="key" onClick={() => press(d)}>{d}</button>
               ))}

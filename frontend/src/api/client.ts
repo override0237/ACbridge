@@ -3,9 +3,9 @@
  * Calls go to /api/* and the Vite dev proxy forwards them to the backend, so no CORS change is needed.
  * Only used when VITE_API_MODE=api.
  */
-import { DEMO_PASSWORD } from '../config';
+import { API_BASE, DEMO_PASSWORD } from '../config';
 
-const BASE = '/api';
+const BASE = API_BASE ?? '/api';
 const tokens = new Map<string, string>(); // phone -> bearer token (memory only)
 
 export class ApiError extends Error {

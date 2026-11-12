@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { LanguageToggle } from './components/LanguageToggle';
 import { SmsLog } from './components/SmsLog';
 import { API_MODE } from './config';
+import { translate } from './i18n';
 import { ArtisanComplete } from './screens/ArtisanComplete';
 import { ArtisanInbox } from './screens/ArtisanInbox';
 import { ArtisanProfile } from './screens/ArtisanProfile';
@@ -30,6 +31,15 @@ const SCREENS: Record<Screen, () => ReactElement> = {
   profile: ArtisanProfile,
 };
 
+function toggleBackend(): void {
+  const next = API_MODE === 'api' ? 'off' : window.prompt(translate(loadLang(), 'footer.connectAsk'), 'http://localhost:8000');
+  if (!next) return;
+  const url = new URL(window.location.href);
+  url.searchParams.set('api', next);
+  window.location.href = url.toString();
+}
+const loadLang = (): 'fr' | 'en' => { try { return (JSON.parse(localStorage.getItem('acbridge.demo.v1') ?? '{}').lang as 'fr' | 'en') ?? 'fr'; } catch { return 'fr'; } };
+
 function Shell() {
   const { state, actions, t, notice, clearNotice } = useStore();
   const Current = SCREENS[state.ui.screen] ?? Home;
@@ -51,7 +61,10 @@ function Shell() {
       </div>
       <footer className="foot">
         <span>{t('footer.note')}</span>
-        <button type="button" className="link" onClick={() => actions.go('operator')}>{t('footer.operator')}</button>
+        <span>
+          <button type="button" className="link" onClick={toggleBackend}>{API_MODE === 'api' ? t('footer.disconnect') : t('footer.connect')}</button>
+          <button type="button" className="link" onClick={() => actions.go('operator')}>{t('footer.operator')}</button>
+        </span>
       </footer>
     </div>
   );

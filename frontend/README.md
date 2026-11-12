@@ -5,6 +5,12 @@ French / English. No UI library, no external fonts/images/CDN, no network needed
 
 > Everything is **simulated**: people, SMS and verification. Nothing real is sent or checked.
 
+## Just open it
+
+**Double-click `frontend/acbridge.html`.** It is one self-contained file (JS and CSS inlined), so it works from a plain file with no server and no internet.
+(The old `index.html` is only the Vite dev entry point; opened directly it shows a blank page because browsers block its module script.)
+Rebuild it with `npm run build`.
+
 ## Setup
 
 ```bash
@@ -23,6 +29,8 @@ npm run build    # type-check + production build
 |---|---|---|
 | **Offline demo** (default) | `npm run dev` | Everything runs in the browser, state in `localStorage`. This is the mode the acceptance criteria refer to. |
 | **Backend sync** | `VITE_API_MODE=api npm run dev` | Same UI, and every step is mirrored to the FastAPI backend in `../backend` through a Vite proxy (`/api` → `http://localhost:8000`, override with `VITE_BACKEND_URL`). No backend CORS change is needed. |
+
+**Easiest way to connect:** start the backend, open `acbridge.html`, click **Connect backend** in the footer (default `http://localhost:8000`). Or open `acbridge.html?api=http://localhost:8000`; use `?api=off` to go back offline. The backend now allows browser calls (CORS, `CORS_ORIGINS` env var, default `*`).
 
 Backend sync prerequisites: run the backend (`uvicorn app.main:app`), then `python -m app.init_db && python -m app.seed`.
 If a backend call fails, the demo keeps working offline and shows a red notice.

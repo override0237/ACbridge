@@ -24,6 +24,9 @@ export const fr: Dict = {
   'speak.play': 'Écouter',
   'speak.stop': 'Arrêter',
   'footer.operator': 'Opérateur',
+  'footer.connect': 'Connecter serveur',
+  'footer.disconnect': 'Mode hors ligne',
+  'footer.connectAsk': 'Adresse du serveur (FastAPI)',
   'footer.note': 'Démo ACbridge · Équipe OVERRIDE',
 
   'urgency.today': "Aujourd'hui",
@@ -110,6 +113,8 @@ export const fr: Dict = {
   'complete.errNone': "Il n'y a pas de travail accepté à finir.",
   'complete.errUsed': 'Ce code a déjà été utilisé.',
   'complete.success': 'Travail terminé. Le client peut maintenant le noter.',
+  'complete.toCustomer': 'Vue client',
+  'complete.keypad': 'Clavier numérique',
   'complete.noJob': 'Aucun travail accepté pour le moment.',
   'complete.codeField': 'Code du travail',
 

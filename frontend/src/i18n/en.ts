@@ -22,6 +22,9 @@ export const en = {
   'speak.play': 'Listen',
   'speak.stop': 'Stop',
   'footer.operator': 'Operator',
+  'footer.connect': 'Connect backend',
+  'footer.disconnect': 'Go offline',
+  'footer.connectAsk': 'Backend address (the FastAPI server)',
   'footer.note': 'ACbridge demo · Team OVERRIDE',
 
   'urgency.today': 'Today',
@@ -108,6 +111,8 @@ export const en = {
   'complete.errNone': 'There is no accepted job to finish.',
   'complete.errUsed': 'This code was already used.',
   'complete.success': 'Job completed. The customer can now rate it.',
+  'complete.toCustomer': 'Customer view',
+  'complete.keypad': 'Number keypad',
   'complete.noJob': 'No accepted job yet.',
   'complete.codeField': 'Job code',
 
