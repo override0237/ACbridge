@@ -46,7 +46,7 @@ export function Operator() {
   const earnings = balances(state.ledger).platform_revenue; // commission booked when customers paid
 
   const describe = (e: AuditEntry): string => {
-    const k = (e.kind === 'verification' || e.kind === 'security' ? `audit.${e.params.event}` : e.kind === 'payment' ? `audit.pay_${e.params.event}` : e.kind === 'payout' ? `audit.payout_${e.params.event}` : `audit.${e.kind}`) as Key;
+    const k = (e.kind === 'verification' || e.kind === 'security' ? `audit.${e.params.event}` : e.kind === 'expiry' ? 'audit.job_expired' : e.kind === 'payment' ? `audit.pay_${e.params.event}` : e.kind === 'payout' ? `audit.payout_${e.params.event}` : `audit.${e.kind}`) as Key;
     return t(k, renderParams(e.params, t, state.lang));
   };
 

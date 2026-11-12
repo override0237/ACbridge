@@ -7,6 +7,7 @@ import {
   POLL_MAX_MS, SANDBOX_APPROVE_AFTER_MS, SANDBOX_DECLINED_PHONE, checkHold, checkPayStart, checkRelease, type PayCheck, type PayMethod, type PayoutCheck,
 } from '../domain/ledger';
 import { agreedPrice } from '../domain/money';
+import { isOfferExpired } from '../domain/offers';
 import {
   checkCompletion, checkRating, checkVouch, generateJobCode, normalizePhone, type CompletionCheck, type RatingCheck,
 } from '../domain/rules';
@@ -40,7 +41,8 @@ export interface Actions {
   vouch(artisanId: string, voucherId: string, workedTogether?: boolean): VouchResult;
   submitRequest(v: { trade: string; urgency: Urgency; description: string }): { ok: true } | { ok: false; error: Key };
   choose(artisanId: string): void;
-  answer(jobId: string, accept: boolean): void;
+  /** The artisan's answer. Returns { expired: true } when the deadline had already passed (the offer is then cancelled). */
+  answer(jobId: string, accept: boolean): { expired: boolean };
   /** Sends a chat message. When the customer ends it with an amount and currency, that amount becomes the job price. */
   sendChat(jobId: string, from: ChatSender, text: string): { ok: true; price: PriceStatus; amount: number | null } | { ok: false; error: Key };
   /** Starts a payment for the job's agreed price (the amount is never an input). The sandbox provider answers after 5 seconds. */
@@ -88,6 +90,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (ok && payment && job) void mirror(async () => { await bridge.payJob(job, payment.phone); });
     }, delayMs);
   }, [mirror]);
+
+  // Offers the artisan did not accept in time are nullified (checked on load and every 30 seconds).
+  useEffect(() => {
+    const sweep = () => {
+      const s = ref.current;
+      if (s.jobs.some((j) => isOfferExpired(j, s.requests.find((r) => r.id === j.requestId), Date.now()))) {
+        dispatch({ type: 'expire', at: now(), stamp: uid('exp') });
+      }
+    };
+    sweep();
+    const id = setInterval(sweep, 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // A payment still pending after a page refresh is settled by the sandbox straight away.
   useEffect(() => {
@@ -199,7 +214,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
 
       answer(jobId, accept) {
-        // The job code is generated here (impure) and handed to the pure reducer, which stores only its hash.
+        const j = find(ref.current.jobs, jobId);
+        if (j && isOfferExpired(j, find(ref.current.requests, j.requestId), Date.now())) {
+          dispatch({ type: 'expire', at: now(), stamp: uid('exp') });
+          return { expired: true };
+        }
         dispatch({ type: 'answer', jobId, accept, at: now(), ids: ids(3) });
         if (accept) {
           void mirror(async () => {
@@ -208,6 +227,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (job && artisan) await bridge.acceptJob(job, artisan);
           });
         }
+        return { expired: false };
       },
 
       startPayment(jobId, method, phone) {

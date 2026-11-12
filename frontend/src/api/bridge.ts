@@ -79,6 +79,7 @@ export async function createRequest(
     skill_id: await skillFor(req.trade),
     description: req.description || `${req.trade} help needed`,
     location: LOCATION,
+    urgency: ({ today: 'TODAY', week: 'THIS_WEEK', later: 'NOT_URGENT' } as const)[req.urgency],
   });
   const { matches } = await api.matches(t, created.request_id);
   const links: Record<string, string> = {};

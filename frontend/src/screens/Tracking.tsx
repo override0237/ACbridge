@@ -21,9 +21,9 @@ export function Tracking() {
   const artisan = state.artisans.find((a) => a.id === job.artisanId);
   const rated = state.ratings.some((r) => r.jobId === job.id);
   const current = rated ? 3 : job.status === 'COMPLETED' ? 2 : job.status === 'ACCEPTED' ? 1 : 0;
-  const declined = job.status === 'DECLINED';
+  const declined = job.status === 'DECLINED' || job.status === 'EXPIRED';
   const paid = isPaid(job, state.payments);
-  const msgKey: Key = declined ? 'tracking.msgDeclined' : rated ? 'tracking.msgRated'
+  const msgKey: Key = job.status === 'EXPIRED' ? 'tracking.msgExpired' : declined ? 'tracking.msgDeclined' : rated ? 'tracking.msgRated'
     : job.status === 'COMPLETED' ? 'tracking.msgCompleted' : job.status === 'ACCEPTED' ? 'tracking.msgAccepted' : 'tracking.msgRequested';
   const msg = t(msgKey, { artisan: artisan?.name ?? '' });
 

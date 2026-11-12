@@ -1,6 +1,6 @@
 export type Lang = 'fr' | 'en';
 export type Urgency = 'today' | 'week' | 'later';
-export type JobStatus = 'REQUESTED' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED';
+export type JobStatus = 'REQUESTED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'COMPLETED';
 
 export interface Artisan {
   id: string;
@@ -93,7 +93,7 @@ export interface SmsMessage {
   at: string;
 }
 
-export type AuditKind = 'verification' | 'job_accepted' | 'job_completed' | 'transaction' | 'price' | 'payment' | 'payout' | 'rating' | 'trust' | 'security';
+export type AuditKind = 'verification' | 'job_accepted' | 'job_completed' | 'transaction' | 'price' | 'expiry' | 'payment' | 'payout' | 'rating' | 'trust' | 'security';
 export interface AuditEntry {
   id: string;
   kind: AuditKind;

@@ -180,3 +180,17 @@ SANDBOX: no real money moves. The offline demo simulates the payments module des
 - **Operator panel:** payments list (phones masked), ledger balances with a balanced/unbalanced indicator, payouts with Hold / Release (reason of 5+ characters required, written to the audit log), and a reconciliation table with a red **Mismatch** warning, plus completed jobs that have no payment (possible off-platform payment).
 - **Not in the offline demo:** signed webhooks, idempotency keys and per-phone rate limits live in the backend. In sync mode the demo starts the payment with an `Idempotency-Key` and approves the simulated prompt.
 - **Bundle check:** the built `acbridge.html` contains no provider keys or webhook secret. It does contain the demo operator PIN `1234` because the offline demo gates its operator screen on the client; the backend operator endpoints require an administrator login instead.
+
+## Offers expire if the artisan does not accept in time
+
+A job offer that the artisan has not answered is **nullified** after a window that depends on the request's urgency:
+
+| Urgency | The artisan must accept within |
+|---|---|
+| Today (urgent) | 1 hour |
+| This week | 1 day |
+| Not urgent | 5 days |
+
+- The artisan's inbox shows the deadline and a countdown. After it passes the offer shows **Offer expired**, YES/NO disappear, a late YES lapses instead of accepting, the chat and Payments close, the customer is told by SMS to choose another artisan and the artisan is told the offer was lost. An `expiry` entry is written to the operator audit log.
+- Only an unanswered offer expires: once the artisan has said YES (or NO) the offer is answered and never expires later.
+- Rule: `src/domain/offers.ts` (checked on load, every 30 seconds, and again at the moment of answering). Backend: `urgency` on service requests, `OFFER_TTL_HOURS_TODAY/_THIS_WEEK/_NOT_URGENT`, `offer_expires_at` on jobs, lazy expiry when a job is read or accepted (`JOB_OFFER_EXPIRED` event, job `CANCELLED`) and `POST /admin/expire-offers` to sweep all stale offers.

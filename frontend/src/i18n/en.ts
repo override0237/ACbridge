@@ -398,6 +398,16 @@ export const en = {
   'audit.payout_paid': "Payout paid: {payout} FCFA to {artisan}",
   'audit.payout_held': "Payout held ({payout} FCFA to {artisan}): {reason}",
   'audit.payout_released': "Payout released by the operator ({payout} FCFA to {artisan}): {reason}",
+  'inbox.deadline': "Answer before {time}",
+  'inbox.left': "{left} left",
+  'inbox.expired': "Offer expired: not accepted in time.",
+  'inbox.expiredNow': "Too late: this offer has expired and was cancelled.",
+  'tracking.msgExpired': "{artisan} did not accept in time, so the offer was cancelled. Choose another artisan.",
+  'chat.sysExpired': "The offer expired because {artisan} did not accept in time.",
+  'request.ttlHint': "The artisan must accept within 1 hour (Today), 1 day (This week) or 5 days (Not urgent), or the offer is cancelled.",
+  'sms.offerExpired': "ACbridge: {artisan} did not accept in time, so your request was cancelled. Please choose another artisan.",
+  'sms.offerLost': "ACbridge: you did not accept the job from {customer} in time, so the offer was cancelled.",
+  'audit.job_expired': "Offer to {artisan} expired (urgency: {urgency}): not accepted in time",
 } as const;
 
 export type Dict = Record<keyof typeof en, string>;

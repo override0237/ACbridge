@@ -62,7 +62,7 @@ export const api = {
     call<{ check_id: string }>('POST', '/verifications', t, { check_type: 'SKILL', skill_id: skillId, evidence_description: evidence }),
   decide: (t: string, checkId: string, decision: 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED', notes?: string) =>
     call('POST', `/verifications/${checkId}/decision`, t, { decision, decision_notes: notes }),
-  createRequest: (t: string, body: { skill_id: string; description: string; location: string; budget?: number }) =>
+  createRequest: (t: string, body: { skill_id: string; description: string; location: string; budget?: number; urgency?: 'TODAY' | 'THIS_WEEK' | 'NOT_URGENT' }) =>
     call<{ request_id: string }>('POST', '/service-requests', t, body),
   matches: (t: string, requestId: string) => call<{ matches: MatchOut[] }>('GET', `/matches/${requestId}`, t),
   createJob: (t: string, requestId: string, artisanId: string, agreedPrice: number) =>

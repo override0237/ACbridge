@@ -37,6 +37,7 @@ export function CustomerRequest() {
             ))}
           </div>
         </fieldset>
+        <p className="muted small">⏱️ {t('request.ttlHint')}</p>
         <label>{t('request.description')}
           <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('request.descriptionHint')} />
         </label>

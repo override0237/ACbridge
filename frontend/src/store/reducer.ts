@@ -5,6 +5,7 @@ import { SEED_ARTISANS, SEED_CUSTOMER } from '../data/seed';
 import { checkChatMessage, maskContacts, type ChatSender } from '../domain/chat';
 import { checkHold, checkPayStart, checkRelease, paymentSucceededLines, payoutPaidLines, postTx, type PayMethod } from '../domain/ledger';
 import { computeCommission } from '../domain/money';
+import { isOfferExpired } from '../domain/offers';
 import {
   checkCompletion, checkRating, checkVouch, formatScore, hashCode, isVerified, trustFor,
 } from '../domain/rules';
@@ -71,6 +72,7 @@ export type Action =
   | { type: 'vouch'; artisanId: string; voucherId: string; workedTogether: boolean; vouchId: string; at: string; ids: string[] }
   | { type: 'request'; request: ServiceRequest }
   | { type: 'choose'; jobId: string; requestId: string; artisanId: string; price: number; at: string; ids: string[] }
+  | { type: 'expire'; at: string; stamp: string }
   | { type: 'answer'; jobId: string; accept: boolean; at: string; ids: string[] }
   | { type: 'payStart'; id: string; jobId: string; method: PayMethod; phone: string | null; ref: string; at: string; ids: string[] }
   | { type: 'paySettle'; id: string; ok: boolean; code: string; at: string; ids: string[] }
@@ -88,6 +90,34 @@ export type Action =
 const sms = (id: string, to: string, key: string, params: SmsMessage['params'], at: string): SmsMessage => ({ id, to, key, params, at });
 const audit = (id: string, kind: AuditKind, params: AuditEntry['params'], at: string): AuditEntry => ({ id, kind, params, at });
 const byId = <T extends { id: string }>(list: T[], id: string): T | undefined => list.find((x) => x.id === id);
+
+/**
+ * Nullifies every offer that is still unanswered after its deadline (1 hour urgent, 1 day this week, 5 days not urgent):
+ * the job becomes EXPIRED, the chat closes, the customer is told to choose another artisan, the artisan is told it lapsed.
+ */
+export function expireStale(s: State, at: string, stamp: string): State {
+  const nowMs = new Date(at).getTime();
+  const overdue = s.jobs.filter((j) => isOfferExpired(j, byId(s.requests, j.requestId), nowMs));
+  if (overdue.length === 0) return s;
+  const ids = new Set(overdue.map((j) => j.id));
+  const sms_: SmsMessage[] = [];
+  const chats_: ChatMessage[] = [];
+  const audit_: AuditEntry[] = [];
+  for (const j of overdue) {
+    const artisan = byId(s.artisans, j.artisanId);
+    const req = byId(s.requests, j.requestId);
+    const name = artisan?.name ?? '';
+    sms_.push(sms(`${stamp}-${j.id}-c`, j.customerPhone, 'sms.offerExpired', { artisan: name }, at));
+    if (artisan) sms_.push(sms(`${stamp}-${j.id}-a`, artisan.phone, 'sms.offerLost', { customer: req?.customerName ?? '' }, at));
+    chats_.push({ id: `${stamp}-${j.id}-m`, jobId: j.id, from: 'system', text: '', key: 'chat.sysExpired', params: { artisan: name }, at });
+    audit_.push(audit(`${stamp}-${j.id}-x`, 'expiry', { artisan: name, urgency: req?.urgency ?? 'later' }, at));
+  }
+  return {
+    ...s,
+    jobs: s.jobs.map((j) => (ids.has(j.id) ? { ...j, status: 'EXPIRED' as const } : j)),
+    sms: [...s.sms, ...sms_], chats: [...s.chats, ...chats_], audit: [...s.audit, ...audit_],
+  };
+}
 
 export function reducer(s: State, a: Action): State {
   switch (a.type) {
@@ -169,7 +199,11 @@ export function reducer(s: State, a: Action): State {
       };
     }
 
+    case 'expire':
+      return expireStale(s, a.at, a.stamp);
+
     case 'answer': {
+      s = expireStale(s, a.at, a.ids[0]); // too late? then the offer lapses instead of being answered
       const job = byId(s.jobs, a.jobId);
       const artisan = job && byId(s.artisans, job.artisanId);
       if (!job || !artisan || job.status !== 'REQUESTED') return s;
