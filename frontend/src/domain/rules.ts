@@ -22,9 +22,12 @@ export type VouchCheck =
  * Is this vouch acceptable for `artisan`? The voucher must already be verified, be a different person on a
  * different phone, not have vouched before, and attest a completed job together.
  */
-export function checkVouch(artisan: Artisan, voucher: Artisan, workedTogether: boolean, existing: Vouch[]): VouchCheck {
+export function checkVouch(
+  artisan: Artisan, voucher: Artisan, workedTogether: boolean, existing: Vouch[], all: Artisan[] = [artisan, voucher],
+): VouchCheck {
   if (voucher.id === artisan.id) return { ok: false, reason: 'self' };
-  if (!isTrusted(voucher)) return { ok: false, reason: 'not_verified' };
+  // Any VERIFIED artisan may vouch: seed/operator-approved ones, and ones who became verified through vouches themselves.
+  if (!isVerified(voucher, existing, all)) return { ok: false, reason: 'not_verified' };
   if (voucher.phone === artisan.phone) return { ok: false, reason: 'same_phone' };
   if (existing.some((v) => v.artisanId === artisan.id && (v.voucherId === voucher.id || v.voucherPhone === voucher.phone)))
     return { ok: false, reason: 'duplicate' };
@@ -33,14 +36,14 @@ export function checkVouch(artisan: Artisan, voucher: Artisan, workedTogether: b
 }
 
 /** Distinct, valid vouches for `artisan` (distinct people and phones, verified voucher, worked together). */
-export function countValidVouches(artisan: Artisan, vouches: Vouch[], all: Artisan[]): number {
+export function countValidVouches(artisan: Artisan, vouches: Vouch[], all: Artisan[], seen: Set<string> = new Set()): number {
   const byId = new Map(all.map((a) => [a.id, a]));
   const ids = new Set<string>();
   const phones = new Set<string>();
   for (const v of vouches) {
     if (v.artisanId !== artisan.id || !v.workedTogether) continue;
     const voucher = byId.get(v.voucherId);
-    if (!voucher || voucher.id === artisan.id || voucher.phone === artisan.phone || !isTrusted(voucher)) continue;
+    if (!voucher || voucher.id === artisan.id || voucher.phone === artisan.phone || !isVerified(voucher, vouches, all, seen)) continue;
     if (ids.has(voucher.id) || phones.has(voucher.phone)) continue;
     ids.add(voucher.id);
     phones.add(voucher.phone);
@@ -49,10 +52,11 @@ export function countValidVouches(artisan: Artisan, vouches: Vouch[], all: Artis
 }
 
 /** Verified = trusted by seed/operator, or at least VOUCHES_REQUIRED valid vouches. Rejected is never verified. */
-export function isVerified(a: Artisan, vouches: Vouch[], all: Artisan[]): boolean {
+export function isVerified(a: Artisan, vouches: Vouch[], all: Artisan[], seen: Set<string> = new Set()): boolean {
   if (a.rejected) return false;
   if (isTrusted(a)) return true;
-  return countValidVouches(a, vouches, all) >= VOUCHES_REQUIRED;
+  if (seen.has(a.id)) return false; // a loop of artisans vouching for each other proves nothing
+  return countValidVouches(a, vouches, all, new Set(seen).add(a.id)) >= VOUCHES_REQUIRED;
 }
 
 // ---------------------------------------------------------------- job code

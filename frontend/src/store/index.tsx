@@ -163,7 +163,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const artisan = find(s.artisans, artisanId);
         const voucher = find(s.artisans, voucherId);
         if (!artisan || !voucher) return { ok: false, error: 'status.noArtisan' };
-        const check = checkVouch(artisan, voucher, workedTogether, s.vouches);
+        const check = checkVouch(artisan, voucher, workedTogether, s.vouches, s.artisans);
         if (!check.ok) {
           // A repeated vouch is a security event: refuse it AND record the attempt in the audit log.
           if (check.reason === 'duplicate') dispatch({ type: 'vouchBlocked', artisanId, voucherId, at: now(), id: uid('sec') });

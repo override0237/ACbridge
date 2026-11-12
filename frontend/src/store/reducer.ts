@@ -159,7 +159,7 @@ export function reducer(s: State, a: Action): State {
       const artisan = byId(s.artisans, a.artisanId);
       const voucher = byId(s.artisans, a.voucherId);
       if (!artisan || !voucher) return s;
-      if (!checkVouch(artisan, voucher, a.workedTogether, s.vouches).ok) return s;
+      if (!checkVouch(artisan, voucher, a.workedTogether, s.vouches, s.artisans).ok) return s;
       const vouch: Vouch = {
         id: a.vouchId, artisanId: artisan.id, voucherId: voucher.id, voucherPhone: voucher.phone,
         workedTogether: a.workedTogether, at: a.at,
