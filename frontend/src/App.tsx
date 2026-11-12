@@ -11,6 +11,7 @@ import { ArtisanProfile } from './screens/ArtisanProfile';
 import { ArtisanSignup } from './screens/ArtisanSignup';
 import { ArtisanStatus } from './screens/ArtisanStatus';
 import { CustomerRequest } from './screens/CustomerRequest';
+import { Chat } from './screens/Chat';
 import { Home } from './screens/Home';
 import { Matches } from './screens/Matches';
 import { Operator } from './screens/Operator';
@@ -31,6 +32,7 @@ const SCREENS: Record<Screen, ComponentType> = {
   customerRequest: CustomerRequest,
   matches: Matches,
   tracking: Tracking,
+  chat: Chat,
   rate: Rate,
   operator: Operator,
   profile: ArtisanProfile,

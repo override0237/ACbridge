@@ -96,6 +96,13 @@ export async function chooseArtisan(req: ServiceRequest, artisan: Artisan, price
   return job.job_id;
 }
 
+/** Mirrors a chat message. The backend reads the amount from the customer's text itself (same rules as the front end). */
+export async function sendChat(job: Job, from: 'customer' | 'artisan', text: string, artisan: Artisan): Promise<void> {
+  if (!job.remoteId) return;
+  const token = await login(from === 'customer' ? job.customerPhone : artisan.phone);
+  await api.sendMessage(token, job.remoteId, text);
+}
+
 export async function acceptJob(job: Job, artisan: Artisan): Promise<void> {
   if (!job.remoteId) return;
   await api.jobAction(await login(artisan.phone), job.remoteId, 'accept');

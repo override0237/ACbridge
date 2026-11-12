@@ -44,6 +44,9 @@ export function Tracking() {
       </Card>
       {!declined && <PriceBreakdown price={job.price} rate={job.commissionRate} done={job.status === 'COMPLETED'} />}
       <div className="stack">
+        {(job.status === 'REQUESTED' || job.status === 'ACCEPTED') && (
+          <Button big icon="💬" label={t('chat.open')} onClick={() => actions.go('chat', { chatAs: 'customer' })} />
+        )}
         {declined && <Button big icon="🔁" label={t('tracking.again')} onClick={() => actions.go('matches')} />}
         {job.status === 'COMPLETED' && !rated && <Button big icon="⭐" label={t('tracking.rate')} onClick={() => actions.go('rate')} />}
         {!declined && !rated && job.status !== 'COMPLETED' && (

@@ -125,3 +125,16 @@ fieldset { border: 0; padding: 0; margin: 0; } legend { font-weight: 700; margin
 .check { flex-direction: row; align-items: center; gap: .6rem; min-height: 48px; }
 .check input { width: 28px; min-height: 28px; height: 28px; }
 h3 { font-size: 1.05rem; margin: .5rem 0 .2rem; }
+
+/* chat ("connect flexibly") */
+.chat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; max-height: 50vh; overflow-y: auto; }
+.bubble { display: flex; flex-direction: column; gap: .15rem; max-width: 88%; padding: .5rem .7rem; border-radius: 12px; border: 2px solid var(--line); background: #fff; align-self: flex-start; }
+.bubble.mine { align-self: flex-end; background: var(--info-bg); border-color: var(--brand); }
+.bubble-system { align-self: center; max-width: 100%; background: var(--warn-bg); border-color: #8a5a00; color: var(--warn); text-align: center; }
+.bubble-who { font-size: 1rem; font-weight: 700; color: var(--muted); }
+.bubble-system .bubble-who { color: var(--warn); }
+.bubble-text { overflow-wrap: anywhere; }
+.bubble-price { font-weight: 800; color: var(--good); }
+.feedback { border-radius: 10px; padding: .6rem .8rem; font-weight: 700; border: 2px solid currentColor; }
+.feedback[hidden] { display: none; }
+.feedback-good { background: var(--good-bg); color: var(--good); } .feedback-warn { background: var(--warn-bg); color: var(--warn); } .feedback-bad { background: var(--bad-bg); color: var(--bad); }

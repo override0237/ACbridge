@@ -17,7 +17,7 @@ const vouch = (artisanId: string, voucher: Artisan, id = voucher.id, workedToget
   ({ id: `v-${id}`, artisanId, voucherId: voucher.id, voucherPhone: voucher.phone, workedTogether, at: '', seal: '', prevHash: '', hash: '' });
 const job = (over: Partial<Job> = {}): Job => ({
   id: 'j1', requestId: 'r1', artisanId: 'seed-1', customerPhone: '+237690000030', status: 'ACCEPTED',
-  codeHash: hashCode('123456'), codeUsed: false, price: 5000, createdAt: '', ...over,
+  codeHash: hashCode('123456'), codeUsed: false, price: 5000, priceSource: 'estimate', createdAt: '', ...over,
 });
 
 describe('verification', () => {

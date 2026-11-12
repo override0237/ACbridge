@@ -65,6 +65,8 @@ export interface Job {
   codeUsed: boolean;
   /** Simulated agreed price (FCFA) and, once completed, the commission taken from the artisan. */
   price: number;
+  /** 'estimate' until the customer writes an amount in the chat ('chat'). Locked once the artisan says YES. */
+  priceSource: 'estimate' | 'chat';
   commissionRate?: number;
   commission?: number;
   payout?: number;
@@ -91,11 +93,24 @@ export interface SmsMessage {
   at: string;
 }
 
-export type AuditKind = 'verification' | 'job_accepted' | 'job_completed' | 'transaction' | 'rating' | 'trust' | 'security';
+export type AuditKind = 'verification' | 'job_accepted' | 'job_completed' | 'transaction' | 'price' | 'rating' | 'trust' | 'security';
 export interface AuditEntry {
   id: string;
   kind: AuditKind;
   params: Record<string, string | number>;
+  at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  jobId: string;
+  from: 'customer' | 'artisan' | 'system';
+  /** Plain text for people (already contact-masked). System messages use key + params so they translate. */
+  text: string;
+  key?: string;
+  params?: Record<string, string | number>;
+  /** Set when this customer message became the job price. */
+  price?: number;
   at: string;
 }
 

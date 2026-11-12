@@ -28,9 +28,9 @@ npm run build    # type-check + production build
 | Mode | How | What it does |
 |---|---|---|
 | **Offline demo** (default) | `npm run dev` | Everything runs in the browser, state in `localStorage`. This is the mode the acceptance criteria refer to. |
-| **Backend sync** | `VITE_API_MODE=api npm run dev` | Same UI, and every step is mirrored to the FastAPI backend in `../backend` through a Vite proxy (`/api` → `http://localhost:8000`, override with `VITE_BACKEND_URL`). No backend CORS change is needed. |
+| **Backend sync** | `VITE_API_MODE=api npm run dev` | Same UI, and every step is mirrored to the FastAPI backend in `../backend` through a Vite proxy (`/api` → `http://localhost:8000`, override with `VITE_BACKEND_URL`). Through the dev proxy no CORS setting is needed. |
 
-**Easiest way to connect:** start the backend, open `acbridge.html`, click **Connect backend** in the footer (default `http://localhost:8000`). Or open `acbridge.html?api=http://localhost:8000`; use `?api=off` to go back offline. The backend now allows browser calls (CORS, `CORS_ORIGINS` env var, default `*`).
+**Easiest way to connect:** start the backend, open `acbridge.html`, click **Connect backend** in the footer (default `http://localhost:8000`). Or open `acbridge.html?api=http://localhost:8000`; use `?api=off` to go back offline. The backend only allows the origins in its `CORS_ORIGINS` setting (default: localhost:5173 and :3000), and a page opened from a file has the origin `null`, so start the backend with `CORS_ORIGINS=*` (or `null`) for local demos, e.g. `CORS_ORIGINS='*' uvicorn app.main:app`.
 
 Backend sync prerequisites: run the backend (`uvicorn app.main:app`), then `python -m app.init_db && python -m app.seed`.
 If a backend call fails, the demo keeps working offline and shows a red notice.
@@ -149,3 +149,22 @@ A verified artisan can vouch for another artisan **once**. The rule is enforced 
 
 There is no withdraw button by design. The vouch panel shows a confirmation with a "this is final" warning, and a sealed row keeps a
 Vouch button so the refusal can be demonstrated live.
+
+## Connect flexibly (chat and bargaining)
+
+After choosing an artisan, the customer taps **Connect flexibly** (the artisan taps **Chat** in the inbox) to talk about the job and bargain.
+When they agree, the **customer writes the final price with the currency at the end**, for example `ok, 9000 FCFA` (also `9 000 XAF`,
+`9.000 fcfa`, `1 250 000 CFA`). The amount is read from the chat (`src/domain/chat.ts`) and becomes the job price; the commission is then
+computed from it and shown in the chat, on the artisan's SMS, in the inbox, on the receipt and in the operator audit log.
+
+- Only the **customer** can fix the price. An amount typed by the artisan is only a suggestion.
+- A number without the currency fixes nothing and the customer is reminded to add it. Amounts must be 500 to 5,000,000 FCFA.
+- The artisan's **YES** is the agreement; after it the price is locked. (This mirrors the backend: customer proposes, artisan accepts.)
+- Phone numbers (9+ digits or +CC...) are hidden as `[number hidden]` so the deal stays on the platform.
+- The chat closes when the job is declined or completed.
+- Backend: `POST/GET /jobs/{id}/messages` (branch `feature/backend-chat`, rules identical to the front end). In sync mode every message is mirrored and the
+  backend reads the amount itself into `proposed_price`.
+
+Known difference: the backend charges the artisan's commission with a **300 FCFA minimum** (and rounds down), paid when the artisan
+confirms the terms, with escrow and a 24h cooling-off. The offline demo takes a plain 5% at completion (no minimum), so shown amounts can differ
+from the backend's for prices under 6,000 FCFA in sync mode.

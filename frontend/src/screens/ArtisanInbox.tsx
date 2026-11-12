@@ -25,6 +25,9 @@ export function ArtisanInbox() {
             <p>🛠️ {req ? tradeLabel(t, req.trade) : ''} · ⏱️ {req ? t(`urgency.${req.urgency}` as Key) : ''}</p>
             {req?.description && <p className="quote">“{req.description}”</p>}
             {j.status !== 'DECLINED' && <PriceBreakdown price={j.price} rate={j.commissionRate} done={j.status === 'COMPLETED'} />}
+            {(j.status === 'REQUESTED' || j.status === 'ACCEPTED') && (
+              <Button variant="secondary" icon="💬" label={t('chat.openArtisan')} onClick={() => actions.go('chat', { chatAs: 'artisan', jobId: j.id })} />
+            )}
             {j.status === 'REQUESTED' && (
               <div className="row-2">
                 <Button big icon="👍" label={t('common.yes')} onClick={() => actions.answer(j.id, true)} />

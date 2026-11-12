@@ -1,7 +1,8 @@
 import type {
-  Artisan, AuditEntry, AuditKind, Job, Lang, Rating, ServiceRequest, SmsMessage, Urgency, Vouch,
+  Artisan, AuditEntry, AuditKind, ChatMessage, Job, Lang, Rating, ServiceRequest, SmsMessage, Urgency, Vouch,
 } from '../domain/types';
 import { SEED_ARTISANS, SEED_CUSTOMER } from '../data/seed';
+import { checkChatMessage, maskContacts, type ChatSender } from '../domain/chat';
 import { computeCommission } from '../domain/money';
 import {
   checkCompletion, checkRating, checkVouch, formatScore, hashCode, isVerified, trustFor,
@@ -10,7 +11,7 @@ import { lastHash, sealVouch } from '../domain/security';
 
 export type Screen =
   | 'home' | 'artisanEntry' | 'artisanLogin' | 'artisanSignup' | 'artisanStatus' | 'artisanInbox' | 'artisanComplete'
-  | 'customerRequest' | 'matches' | 'tracking' | 'rate' | 'operator' | 'profile';
+  | 'customerRequest' | 'matches' | 'tracking' | 'chat' | 'rate' | 'operator' | 'profile';
 
 export interface UiState {
   screen: Screen;
@@ -21,6 +22,8 @@ export interface UiState {
   back: Screen;
   /** Where to go after a successful artisan login. */
   loginNext?: Screen | null;
+  /** Who is writing in the chat screen: the customer or the job's artisan. */
+  chatAs?: ChatSender;
 }
 
 export interface State {
@@ -30,6 +33,7 @@ export interface State {
   vouches: Vouch[];
   requests: ServiceRequest[];
   jobs: Job[];
+  chats: ChatMessage[];
   ratings: Rating[];
   sms: SmsMessage[];
   audit: AuditEntry[];
@@ -43,6 +47,7 @@ export const initialState = (): State => ({
   vouches: [],
   requests: [],
   jobs: [],
+  chats: [],
   ratings: [],
   sms: [],
   audit: [],
@@ -60,6 +65,7 @@ export type Action =
   | { type: 'request'; request: ServiceRequest }
   | { type: 'choose'; jobId: string; requestId: string; artisanId: string; price: number; at: string; ids: string[] }
   | { type: 'answer'; jobId: string; accept: boolean; code: string; at: string; ids: string[] }
+  | { type: 'chat'; id: string; sysId: string; jobId: string; from: ChatSender; text: string; at: string; ids: string[] }
   | { type: 'complete'; jobId: string; entered: string; at: string; ids: string[] }
   | { type: 'rate'; ratingId: string; jobId: string; score: number; comment: string; at: string; ids: string[] }
   | { type: 'operator'; artisanId: string; approve: boolean; at: string; ids: string[] }
@@ -142,7 +148,7 @@ export function reducer(s: State, a: Action): State {
       if (!artisan || !req) return s;
       const job: Job = {
         id: a.jobId, requestId: req.id, artisanId: artisan.id, customerPhone: req.customerPhone,
-        status: 'REQUESTED', codeHash: null, codeUsed: false, price: a.price, createdAt: a.at,
+        status: 'REQUESTED', codeHash: null, codeUsed: false, price: a.price, priceSource: 'estimate', createdAt: a.at,
       };
       return {
         ...s,
@@ -160,15 +166,47 @@ export function reducer(s: State, a: Action): State {
         return {
           ...s,
           jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, status: 'DECLINED' } : j)),
+          chats: [...s.chats, { id: a.ids[1], jobId: job.id, from: 'system', text: '', key: 'chat.sysDeclined', params: { artisan: artisan.name }, at: a.at }],
           sms: [...s.sms, sms(a.ids[0], job.customerPhone, 'sms.jobDeclined', { artisan: artisan.name }, a.at)],
         };
       }
       return {
         ...s,
         jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, status: 'ACCEPTED', codeHash: hashCode(a.code), acceptedAt: a.at } : j)),
+        chats: [...s.chats, { id: a.ids[2], jobId: job.id, from: 'system', text: '', key: 'chat.sysAccepted', params: { price: job.price, artisan: artisan.name }, at: a.at }],
         // The plain code exists only inside this SMS to the customer; the job stores its hash.
         sms: [...s.sms, sms(a.ids[0], job.customerPhone, 'sms.jobCode', { artisan: artisan.name, code: a.code }, a.at)],
         audit: [...s.audit, audit(a.ids[1], 'job_accepted', { artisan: artisan.name }, a.at)],
+      };
+    }
+
+    case 'chat': {
+      const job = byId(s.jobs, a.jobId);
+      const check = checkChatMessage(job, a.from, a.text); // re-validated here: the UI is not trusted
+      if (!job || !check.ok) return s;
+      const message: ChatMessage = {
+        id: a.id, jobId: job.id, from: a.from, text: maskContacts(a.text.trim()), at: a.at,
+        ...(check.price === 'applied' ? { price: check.amount ?? undefined } : {}),
+      };
+      if (check.price !== 'applied' || check.amount === null) return { ...s, chats: [...s.chats, message] };
+      // The customer's amount (with its currency at the end) is the price from now on; the commission follows from it.
+      const tx = computeCommission(check.amount);
+      const artisan = byId(s.artisans, job.artisanId);
+      const req = byId(s.requests, job.requestId);
+      const system: ChatMessage = {
+        id: a.sysId, jobId: job.id, from: 'system', text: '', key: 'chat.sysPrice', at: a.at,
+        params: { price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout },
+      };
+      return {
+        ...s,
+        chats: [...s.chats, message, system],
+        jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, price: tx.price, priceSource: 'chat' } : j)),
+        sms: [...s.sms, sms(a.ids[0], artisan?.phone ?? '', 'sms.priceProposed', {
+          customer: req?.customerName ?? '', price: tx.price, rate: tx.ratePercent, commission: tx.commission, payout: tx.payout,
+        }, a.at)],
+        audit: [...s.audit, audit(a.ids[1], 'price', {
+          artisan: artisan?.name ?? '', price: tx.price, rate: tx.ratePercent, commission: tx.commission,
+        }, a.at)],
       };
     }
 

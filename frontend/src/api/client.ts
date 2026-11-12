@@ -69,6 +69,8 @@ export const api = {
     call<JobOut>('POST', '/jobs', t, { request_id: requestId, artisan_id: artisanId, agreed_price: agreedPrice }),
   jobAction: (t: string, jobId: string, action: 'accept' | 'start' | 'confirm-completion') =>
     call<JobOut>('POST', `/jobs/${jobId}/${action}`, t),
+  sendMessage: (t: string, jobId: string, body: string) =>
+    call<{ price_status: string }>('POST', `/jobs/${jobId}/messages`, t, { body }),
   review: (t: string, jobId: string, rating: number, comment: string) =>
     call('POST', `/jobs/${jobId}/reviews`, t, { rating, comment: comment || null }),
 };

@@ -8,7 +8,7 @@ const BACKEND_ROUTES = [
   'POST /auth/register', 'POST /auth/login', 'GET /skills', 'POST /artisans', 'POST /artisans/:id/skills',
   'POST /artisans/:id/endorsements', 'POST /verifications', 'POST /verifications/:id/decision',
   'POST /service-requests', 'GET /matches/:id', 'POST /jobs', 'POST /jobs/:id/accept', 'POST /jobs/:id/start',
-  'POST /jobs/:id/confirm-completion', 'POST /jobs/:id/reviews',
+  'POST /jobs/:id/confirm-completion', 'POST /jobs/:id/reviews', 'POST /jobs/:id/messages',
 ];
 const pattern = (m: string, p: string) => `${m} ${p.replace(/\/[0-9a-f-]{8,}/g, '/:id').replace(/\/(?=[a-z])/g, '/')}`;
 
@@ -51,9 +51,11 @@ describe('API bridge calls only routes the backend defines', () => {
     expect(created.links['seed-1']).toBe('eeeeeeee-5555'); // Grace linked by name
     const jobId = await bridge.chooseArtisan({ ...req, remoteId: created.requestId }, { ...grace, remoteId: 'eeeeeeee-5555' }, 5500);
     expect(jobId).toBe('ffffffff-6666');
-    const job: Job = { id: 'j', requestId: 'r', artisanId: 'seed-1', customerPhone: req.customerPhone, status: 'ACCEPTED', codeHash: 'x', codeUsed: false, price: 5500, createdAt: '', remoteId: jobId! };
+    const job: Job = { id: 'j', requestId: 'r', artisanId: 'seed-1', customerPhone: req.customerPhone, status: 'ACCEPTED', codeHash: 'x', codeUsed: false, price: 5500, priceSource: 'estimate', createdAt: '', remoteId: jobId! };
     await bridge.acceptJob(job, grace);
     await bridge.completeJob(job, grace);
+    await bridge.sendChat(job, 'customer', 'ok 9000 FCFA', grace);
+    await bridge.sendChat(job, 'artisan', 'fine', grace);
     await bridge.review(job, 5, 'Good');
 
     for (const c of calls) expect(BACKEND_ROUTES).toContain(c.route);
@@ -65,6 +67,10 @@ describe('API bridge calls only routes the backend defines', () => {
     expect(ends).toEqual(['Bearer tok-+237690000015', 'Bearer tok-+237690000011']);
     const confirms = calls.filter((c) => c.route.endsWith('/confirm-completion')).map((c) => c.auth);
     expect(new Set(confirms).size).toBe(2);
+    const chat = calls.filter((c) => c.route === 'POST /jobs/:id/messages');
+    expect(chat.map((c) => c.body)).toEqual([{ body: 'ok 9000 FCFA' }, { body: 'fine' }]);
+    expect(chat[0].auth).toBe('Bearer tok-+237690000030'); // customer token, then the artisan's own
+    expect(chat[1].auth).toBe('Bearer tok-+237690000015');
     expect(calls.find((c) => c.route === 'POST /jobs/:id/reviews')?.body).toEqual({ rating: 5, comment: 'Good' });
     expect((calls.find((c) => c.route === 'POST /artisans')?.body as { location: string }).location).toBe('Neighbourhood A, Buea');
   });

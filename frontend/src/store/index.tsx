@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { API_MODE, NEIGHBOURHOOD } from '../config';
 import { resolveTrade } from '../domain/trades';
 import { SEED_CUSTOMER } from '../data/seed';
+import { checkChatMessage, type ChatSender, type PriceStatus } from '../domain/chat';
 import { agreedPrice } from '../domain/money';
 import {
   checkCompletion, checkRating, checkVouch, generateJobCode, normalizePhone, type CompletionCheck, type RatingCheck,
@@ -37,6 +38,8 @@ export interface Actions {
   submitRequest(v: { trade: string; urgency: Urgency; description: string }): { ok: true } | { ok: false; error: Key };
   choose(artisanId: string): void;
   answer(jobId: string, accept: boolean): void;
+  /** Sends a chat message. When the customer ends it with an amount and currency, that amount becomes the job price. */
+  sendChat(jobId: string, from: ChatSender, text: string): { ok: true; price: PriceStatus; amount: number | null } | { ok: false; error: Key };
   complete(jobId: string, entered: string): CompletionCheck;
   rate(jobId: string, score: number, comment: string): RatingCheck;
   operator(artisanId: string, approve: boolean): void;
@@ -171,7 +174,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       answer(jobId, accept) {
         // The job code is generated here (impure) and handed to the pure reducer, which stores only its hash.
-        dispatch({ type: 'answer', jobId, accept, code: generateJobCode(), at: now(), ids: ids(2) });
+        dispatch({ type: 'answer', jobId, accept, code: generateJobCode(), at: now(), ids: ids(3) });
         if (accept) {
           void mirror(async () => {
             const job = find(ref.current.jobs, jobId);
@@ -179,6 +182,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (job && artisan) await bridge.acceptJob(job, artisan);
           });
         }
+      },
+
+      sendChat(jobId, from, text) {
+        const job = find(ref.current.jobs, jobId);
+        const check = checkChatMessage(job, from, text);
+        if (!check.ok) return { ok: false, error: ({ empty: 'chat.errEmpty', too_long: 'chat.errLong', closed: 'chat.errClosed' } as const)[check.reason] };
+        dispatch({ type: 'chat', id: uid('msg'), sysId: uid('sys'), jobId, from, text, at: now(), ids: ids(2) });
+        void mirror(async () => {
+          const j = find(ref.current.jobs, jobId);
+          const artisan = find(ref.current.artisans, j?.artisanId);
+          if (j && artisan) await bridge.sendChat(j, from, text, artisan);
+        });
+        return { ok: true, price: check.price, amount: check.amount };
       },
 
       complete(jobId, entered) {
