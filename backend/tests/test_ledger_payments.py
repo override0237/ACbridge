@@ -137,8 +137,8 @@ def test_agreed_price_is_frozen_and_the_amount_never_comes_from_the_request(worl
     job = world.client.get(f"/jobs/{job_id}", headers=customer.headers).json()
     assert job["agreed_price"] == 6000
     # no endpoint changes an agreed price: a chat message cannot reopen it either
-    chat = world.client.post(f"/jobs/{job_id}/messages", headers=customer.headers, json={"body": "now 100 FCFA"})
-    assert chat.json()["price_status"] in ("LOCKED", "OUT_OF_RANGE")
+    chat = world.client.post(f"/jobs/{job_id}/messages", headers=artisan.headers, json={"body": "now 7000 FCFA"})
+    assert chat.json()["price_status"] == "LOCKED"
     assert world.client.get(f"/jobs/{job_id}", headers=customer.headers).json()["agreed_price"] == 6000
 
 

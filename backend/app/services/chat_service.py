@@ -1,13 +1,15 @@
 """Job chat ("connect flexibly"): the customer and artisan bargain in free text.
 
-When the customer writes a message that ENDS with an amount and a currency (e.g. "ok, 9000 FCFA" or
-"9 000 XAF"), that amount becomes the job's proposed price - the same field the rest of the platform already uses
-(customer proposes, artisan accepts = agreed, commission computed from the agreed price). So the chat decides
-nothing by itself: the artisan's own acceptance is still the agreement, and the cooling-off period still applies.
+The CUSTOMER bargains; the ARTISAN states the final price. When the artisan writes a message that ENDS with an amount
+and a currency (e.g. "final price: 9000 FCFA" or "9 000 XAF"), that amount becomes the job's proposed price
+(proposed_by = ARTISAN) - the same field the rest of the platform already uses. The artisan's acceptance (POST /accept)
+then agrees it, the price is frozen, the cooling-off period starts and the commission is computed from it. The customer
+never fixes the price: an amount the customer types is just an offer in the conversation, and the customer's consent
+is the payment (and the free withdrawal during the cooling-off period).
 
 Rules (enforced here, never by the client):
   * Only the two parties can write; admins may read.
-  * Only the CUSTOMER can set a price from the chat. An amount typed by the artisan is just talk.
+  * Only the ARTISAN can set the final price from the chat. An amount typed by the customer is just bargaining.
   * A price can be set only while the job is REQUESTED, fixed-price, and the artisan has not agreed yet.
   * The amount must be between MIN_PRICE and MAX_PRICE FCFA, written with the currency at the END of the message.
   * Phone numbers are hidden (so the deal stays on the platform where escrow, reviews and fees apply).
@@ -59,14 +61,14 @@ def mask_contacts(text: str) -> str:
 @dataclass
 class SendResult:
     message: JobMessage
-    price_status: str  # NONE | APPLIED | OUT_OF_RANGE | LOCKED | NOT_APPLICABLE | NOT_CUSTOMER
+    price_status: str  # NONE | APPLIED | OUT_OF_RANGE | LOCKED | NOT_APPLICABLE | NOT_ARTISAN
 
 
 def _price_status(job: Job, party: str, amount: int | None) -> str:
     if amount is None:
         return "NONE"
-    if party != "CUSTOMER":
-        return "NOT_CUSTOMER"
+    if party != "ARTISAN":
+        return "NOT_ARTISAN"          # the customer bargains; only the artisan states the final price
     if not (MIN_PRICE <= amount <= MAX_PRICE):
         return "OUT_OF_RANGE"
     if job.pricing_mode != PricingMode.FIXED_PRICE.value:
@@ -91,7 +93,7 @@ def send_message(db: Session, user, job_id: uuid.UUID, body: str) -> SendResult:
     status = _price_status(job, party, amount)
     message = JobMessage(job_id=job.job_id, sender_id=user.user_id, sender_role=party, body=mask_contacts(text))
     if status == "APPLIED":
-        job.proposed_price, job.proposed_by = amount, "CUSTOMER"
+        job.proposed_price, job.proposed_by = amount, "ARTISAN"
         message.proposed_price = amount
         db.add(message)
         db.flush()

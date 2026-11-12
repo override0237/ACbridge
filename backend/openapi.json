@@ -380,7 +380,7 @@
       "ChatMessageIn": {
         "properties": {
           "body": {
-            "description": "Free text. End it with an amount and currency, e.g. '9000 FCFA', to propose that price (customer only).",
+            "description": "Free text. The ARTISAN ends a message with an amount and currency, e.g. '9000 FCFA', to state the final price. A customer's amount is only bargaining.",
             "maxLength": 500,
             "minLength": 1,
             "title": "Body",
@@ -473,7 +473,7 @@
             "$ref": "#/components/schemas/ChatMessageOut"
           },
           "price_status": {
-            "description": "NONE (no amount found), APPLIED, OUT_OF_RANGE, LOCKED (artisan already agreed / not REQUESTED), NOT_APPLICABLE (inspection job) or NOT_CUSTOMER (only the customer sets the price)",
+            "description": "NONE (no amount found), APPLIED, OUT_OF_RANGE, LOCKED (artisan already agreed / not REQUESTED), NOT_APPLICABLE (inspection job) or NOT_ARTISAN (only the artisan states the final price; the customer bargains)",
             "title": "Price Status",
             "type": "string"
           }

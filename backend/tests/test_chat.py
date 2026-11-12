@@ -79,9 +79,9 @@ def test_strangers_cannot_read_or_write(world):
     assert world.client.get(f"/jobs/{job_id}/messages").status_code in (401, 403)
 
 
-def test_customer_amount_with_currency_becomes_the_proposed_price_and_shows_the_commission(world):
+def test_artisan_amount_with_currency_becomes_the_proposed_price_and_shows_the_commission(world):
     customer, artisan, job_id, _ = _job(world, price=9000)
-    res = _say(world, customer, job_id, "Agreed then: 12 000 FCFA")
+    res = _say(world, artisan, job_id, "Final price: 12 000 FCFA")
     assert res.status_code == 201
     body = res.json()
     assert body["price_status"] == "APPLIED"
@@ -89,38 +89,41 @@ def test_customer_amount_with_currency_becomes_the_proposed_price_and_shows_the_
     assert body["message"]["commission_if_agreed"] == 600          # 5% of 12 000
     assert body["message"]["artisan_receives_if_agreed"] == 11400
     job = _job_json(world, customer, job_id)
-    assert (job["proposed_price"], job["proposed_by"], job["agreed_price"]) == (12000, "CUSTOMER", None)
+    assert (job["proposed_price"], job["proposed_by"], job["agreed_price"]) == (12000, "ARTISAN", None)
     assert any(e["event_type"] == "PRICE_PROPOSED_IN_CHAT" and e["event_metadata"]["amount"] == 12000
                for e in job["events"])
 
 
 def test_the_artisans_acceptance_is_still_what_agrees_the_price(world):
     customer, artisan, job_id, _ = _job(world, price=9000)
-    _say(world, customer, job_id, "ok 7500 FCFA")
+    _say(world, customer, job_id, "Could you do it for 6 000 FCFA?")      # the customer bargains...
+    _say(world, artisan, job_id, "ok, my final price is 7500 FCFA")       # ...the artisan states the final price
+    assert _job_json(world, customer, job_id)["proposed_price"] == 7500
     res = world.client.post(f"/jobs/{job_id}/accept", headers=artisan.headers)
     assert res.status_code == 200
     job = res.json()
     assert job["agreed_price"] == 7500 and job["artisan_agreed"] is True
 
 
-def test_amount_typed_by_the_artisan_or_without_currency_changes_nothing(world):
+def test_an_amount_typed_by_the_customer_or_without_currency_changes_nothing(world):
     customer, artisan, job_id, _ = _job(world, price=9000)
-    assert _say(world, artisan, job_id, "I want 20 000 FCFA").json()["price_status"] == "NOT_CUSTOMER"
-    assert _say(world, customer, job_id, "ok 5000").json()["price_status"] == "NONE"
+    offer = _say(world, customer, job_id, "I offer 3 000 FCFA")
+    assert offer.json()["price_status"] == "NOT_ARTISAN" and offer.json()["message"]["proposed_price"] is None
+    assert _say(world, artisan, job_id, "ok 5000").json()["price_status"] == "NONE"     # no currency
     assert _job_json(world, customer, job_id)["proposed_price"] == 9000
 
 
 def test_out_of_range_amounts_are_rejected_but_the_message_is_kept(world):
     customer, artisan, job_id, _ = _job(world)
-    assert _say(world, customer, job_id, "100 FCFA").json()["price_status"] == "OUT_OF_RANGE"
-    assert _say(world, customer, job_id, "9 000 000 FCFA").json()["price_status"] == "OUT_OF_RANGE"
+    assert _say(world, artisan, job_id, "100 FCFA").json()["price_status"] == "OUT_OF_RANGE"
+    assert _say(world, artisan, job_id, "9 000 000 FCFA").json()["price_status"] == "OUT_OF_RANGE"
     assert _job_json(world, customer, job_id)["proposed_price"] == 9000
 
 
 def test_price_is_locked_once_the_artisan_has_agreed(world):
     customer, artisan, job_id, _ = _job(world, price=9000)
     world.client.post(f"/jobs/{job_id}/accept", headers=artisan.headers)
-    res = _say(world, customer, job_id, "actually 3000 FCFA")
+    res = _say(world, artisan, job_id, "actually 3000 FCFA")
     assert res.status_code == 201 and res.json()["price_status"] == "LOCKED"
     job = _job_json(world, customer, job_id)
     assert job["agreed_price"] == 9000 and job["proposed_price"] == 9000
@@ -132,13 +135,13 @@ def test_inspection_jobs_do_not_take_a_price_from_the_chat(world):
     artisan = world.artisan(skill_id, "Inspector")
     request_id = world.request(customer, skill_id, needs_inspection=True)
     job_id = world.job(customer, artisan, request_id, price=None)
-    assert _say(world, customer, job_id, "10 000 FCFA").json()["price_status"] == "NOT_APPLICABLE"
+    assert _say(world, artisan, job_id, "10 000 FCFA").json()["price_status"] == "NOT_APPLICABLE"
     assert _job_json(world, customer, job_id)["proposed_price"] is None
 
 
 def test_phone_numbers_in_messages_are_hidden(world):
     customer, artisan, job_id, _ = _job(world)
-    body = _say(world, customer, job_id, "call 670123456 then 8000 FCFA").json()
+    body = _say(world, artisan, job_id, "call 670123456 then 8000 FCFA").json()
     assert "670123456" not in body["message"]["body"] and "[number hidden]" in body["message"]["body"]
     assert body["price_status"] == "APPLIED" and body["message"]["proposed_price"] == 8000
 

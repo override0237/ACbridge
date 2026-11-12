@@ -336,14 +336,14 @@ The customer and artisan of a job can talk in the app and bargain; the final pri
 | `POST /jobs/{id}/messages` `{ "body": "..." }` | customer or artisan of the job | send a message (1-500 chars, rate limited) |
 | `GET /jobs/{id}/messages` | the two parties, admins | the conversation, oldest first |
 
-- **The price comes from the customer's message.** If a customer message **ends with an amount and a currency** (`9000 FCFA`,
-  `9 000 XAF`, `9.000 fcfa`, `1 250 000 CFA`), that amount becomes the job's `proposed_price` (`proposed_by = CUSTOMER`) and a
+- **The customer bargains; the artisan states the final price.** If an **artisan** message **ends with an amount and a currency** (`9000 FCFA`,
+  `9 000 XAF`, `9.000 fcfa`, `1 250 000 CFA`), that amount becomes the job's `proposed_price` (`proposed_by = ARTISAN`) and a
   `PRICE_PROPOSED_IN_CHAT` job event is written. The response says what happened in `price_status`
-  (`APPLIED`, `NONE`, `OUT_OF_RANGE`, `LOCKED`, `NOT_APPLICABLE`, `NOT_CUSTOMER`) and shows `commission_if_agreed` and
+  (`APPLIED`, `NONE`, `OUT_OF_RANGE`, `LOCKED`, `NOT_APPLICABLE`, `NOT_ARTISAN`) and shows `commission_if_agreed` and
   `artisan_receives_if_agreed` using the platform commission.
 - **Nothing is agreed by the chat alone.** The artisan's `POST /jobs/{id}/accept` is still the agreement (price becomes
   `agreed_price`, cooling-off starts). After that the price is `LOCKED`.
-- Only the customer can set a price; an amount typed by the artisan is just conversation. Amounts must be 500 to 5,000,000 FCFA.
+- Only the **artisan** can state the price; an amount typed by the customer is just bargaining (`NOT_ARTISAN`). The customer's consent is paying, or withdrawing during the cooling-off period. Amounts must be 500 to 5,000,000 FCFA.
   Inspection jobs (`INSPECTION_REQUIRED`) take their price from the artisan's quote, so the chat does not set it.
 - Phone numbers (9+ digits or `+CC...`) are replaced by `[number hidden]` so the deal stays on the platform.
 - The chat closes when the job is `COMPLETED` or `CANCELLED`. Messages are append-only (database triggers refuse UPDATE/DELETE).
