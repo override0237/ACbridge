@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.errors import BadRequestError, ConflictError, NotFoundError, PermissionDeniedError
-from app.services import file_storage
+from app.services import file_storage, trade_group_service
 from app.models import (
     ArtisanProfile, ArtisanSkill, CheckStatus, CheckType, Endorsement, Role, SkillVerificationStatus, User,
     VerificationCheck,
@@ -76,10 +76,16 @@ def add_endorsement(db: Session, endorser: User, artisan_id: uuid.UUID, evidence
     endorsement = Endorsement(artisan_id=artisan_id, endorser_id=endorser.user_id, evidence_description=evidence)
     db.add(endorsement)
     try:
-        db.commit()  # UNIQUE(artisan_id, endorser_id) is the real duplicate guard (race-safe)
+        db.commit()  # UNIQUE constraints are the real guards (race-safe)
     except IntegrityError:
         db.rollback()
-        raise ConflictError("You have already endorsed this artisan")
+        already = db.scalar(select(func.count()).select_from(Endorsement).where(
+            Endorsement.artisan_id == artisan_id, Endorsement.endorser_id == endorser.user_id))
+        if already:
+            raise ConflictError("You have already endorsed this artisan")
+        raise ConflictError(
+            "You can only vouch for one artisan. Only trade groups can vouch for several artisans"
+        )
     return endorsement
 
 
@@ -160,7 +166,8 @@ def decide(
     if decision == CheckStatus.APPROVED.value and check.check_type == CheckType.SKILL.value:
         needed = get_settings().min_endorsements_for_skill_verification
         have = count_endorsements(db, artisan.artisan_id)
-        if have < needed:
+        # A confirmed trade-group vouch for THIS skill counts as sufficient community proof on its own.
+        if have < needed and not trade_group_service.has_confirmed_vouch(db, artisan.artisan_id, check.skill_id):
             raise ConflictError(
                 f"Cannot approve: {have} community endorsement(s) on record, {needed} required"
             )

@@ -54,6 +54,13 @@
             "title": "Skills",
             "type": "array"
           },
+          "trade_group_vouches": {
+            "items": {
+              "$ref": "#/components/schemas/PublicVouchOut"
+            },
+            "title": "Trade Group Vouches",
+            "type": "array"
+          },
           "verification_mode": {
             "title": "Verification Mode",
             "type": "string"
@@ -78,6 +85,7 @@
           "identity_verified",
           "skills",
           "endorsement_count",
+          "trade_group_vouches",
           "reputation",
           "verification_mode",
           "verification_notice"
@@ -1185,6 +1193,43 @@
         "title": "PricingPolicyOut",
         "type": "object"
       },
+      "PublicVouchOut": {
+        "properties": {
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
+          },
+          "skill_id": {
+            "format": "uuid",
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "skill_name": {
+            "title": "Skill Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_name",
+          "skill_id",
+          "skill_name",
+          "confirmed_at"
+        ],
+        "title": "PublicVouchOut",
+        "type": "object"
+      },
       "QuoteIn": {
         "properties": {
           "amount": {
@@ -1368,6 +1413,21 @@
           "created_at"
         ],
         "title": "ReviewOut",
+        "type": "object"
+      },
+      "RevokeVouchIn": {
+        "properties": {
+          "notes": {
+            "maxLength": 1000,
+            "minLength": 5,
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "RevokeVouchIn",
         "type": "object"
       },
       "RoleChangeIn": {
@@ -1603,6 +1663,21 @@
         "title": "SkillOut",
         "type": "object"
       },
+      "TokenIn": {
+        "properties": {
+          "token": {
+            "maxLength": 200,
+            "minLength": 20,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "TokenIn",
+        "type": "object"
+      },
       "TokenOut": {
         "properties": {
           "access_token": {
@@ -1630,6 +1705,146 @@
           "role"
         ],
         "title": "TokenOut",
+        "type": "object"
+      },
+      "TradeGroupAdminOut": {
+        "properties": {
+          "confirmed_vouches": {
+            "title": "Confirmed Vouches",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "email_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SENT or FAILED for the message just sent",
+            "title": "Email Status"
+          },
+          "email_verified": {
+            "title": "Email Verified",
+            "type": "boolean"
+          },
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pending_vouches": {
+            "title": "Pending Vouches",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "name",
+          "email",
+          "description",
+          "status",
+          "email_verified",
+          "created_at",
+          "confirmed_vouches",
+          "pending_vouches"
+        ],
+        "title": "TradeGroupAdminOut",
+        "type": "object"
+      },
+      "TradeGroupIn": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "email": {
+            "description": "The group's official e-mail; a confirmation link is sent to it",
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ],
+        "title": "TradeGroupIn",
+        "type": "object"
+      },
+      "TradeGroupPublicOut": {
+        "description": "What artisans see when choosing a group. The group's e-mail address is NEVER included.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "name",
+          "description"
+        ],
+        "title": "TradeGroupPublicOut",
         "type": "object"
       },
       "UserOut": {
@@ -1890,6 +2105,230 @@
         ],
         "title": "VerificationOut",
         "type": "object"
+      },
+      "VouchDetailsOut": {
+        "description": "Shown to the trade group on the confirmation page. No phone numbers.",
+        "properties": {
+          "artisan_location": {
+            "title": "Artisan Location",
+            "type": "string"
+          },
+          "artisan_name": {
+            "title": "Artisan Name",
+            "type": "string"
+          },
+          "artisan_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artisan Note"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
+          },
+          "skill_name": {
+            "title": "Skill Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_name",
+          "artisan_name",
+          "artisan_location",
+          "skill_name",
+          "artisan_note",
+          "status",
+          "expires_at"
+        ],
+        "title": "VouchDetailsOut",
+        "type": "object"
+      },
+      "VouchOut": {
+        "properties": {
+          "artisan_id": {
+            "format": "uuid",
+            "title": "Artisan Id",
+            "type": "string"
+          },
+          "artisan_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artisan Note"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "email_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SENT or FAILED (use resend if FAILED)",
+            "title": "Email Status"
+          },
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "simulated_email": {
+            "description": "True when e-mail is in console mode: nothing was really sent",
+            "title": "Simulated Email",
+            "type": "boolean"
+          },
+          "skill_id": {
+            "format": "uuid",
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "skill_name": {
+            "title": "Skill Name",
+            "type": "string"
+          },
+          "status": {
+            "description": "PENDING_CONFIRMATION, CONFIRMED, REJECTED, EXPIRED or REVOKED",
+            "title": "Status",
+            "type": "string"
+          },
+          "token_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Expires At"
+          },
+          "vouch_id": {
+            "format": "uuid",
+            "title": "Vouch Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vouch_id",
+          "group_id",
+          "group_name",
+          "artisan_id",
+          "skill_id",
+          "skill_name",
+          "status",
+          "artisan_note",
+          "created_at",
+          "decided_at",
+          "token_expires_at",
+          "simulated_email",
+          "message"
+        ],
+        "title": "VouchOut",
+        "type": "object"
+      },
+      "VouchRequestIn": {
+        "properties": {
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional: membership number or how the group knows you",
+            "title": "Note"
+          },
+          "skill_id": {
+            "format": "uuid",
+            "title": "Skill Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "skill_id"
+        ],
+        "title": "VouchRequestIn",
+        "type": "object"
+      },
+      "VouchRespondIn": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "CONFIRM",
+              "REJECT"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 200,
+            "minLength": 20,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "decision"
+        ],
+        "title": "VouchRespondIn",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -2001,6 +2440,38 @@
           }
         ],
         "summary": "Unsuspend",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/dev/outbox": {
+      "get": {
+        "description": "DEMO ONLY: read the simulated e-mails (console mode). Disabled whenever real e-mail is configured.",
+        "operationId": "dev_outbox_admin_dev_outbox_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Dev Outbox Admin Dev Outbox Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Dev Outbox",
         "tags": [
           "admin"
         ]
@@ -2196,6 +2667,282 @@
           }
         ],
         "summary": "Skip Probation",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/trade-group-vouches/{vouch_id}/revoke": {
+      "post": {
+        "description": "Withdraw a confirmed vouch (e.g. the group vouched fraudulently). The skill is unverified again unless\nanother approved verification still backs it.",
+        "operationId": "revoke_vouch_admin_trade_group_vouches__vouch_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vouch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vouch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeVouchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke Vouch",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/trade-groups": {
+      "get": {
+        "operationId": "list_trade_groups_admin_trade_groups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TradeGroupAdminOut"
+                  },
+                  "title": "Response List Trade Groups Admin Trade Groups Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Trade Groups",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Register a trade group you have contacted. It e-mails the group a link; the group is usable only after\nsomeone at that address confirms it.",
+        "operationId": "register_trade_group_admin_trade_groups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TradeGroupIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeGroupAdminOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Register Trade Group",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/trade-groups/{group_id}/activate": {
+      "post": {
+        "operationId": "activate_group_admin_trade_groups__group_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeGroupAdminOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Activate Group",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/trade-groups/{group_id}/resend-verification": {
+      "post": {
+        "operationId": "resend_group_verification_admin_trade_groups__group_id__resend_verification_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeGroupAdminOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resend Group Verification",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/trade-groups/{group_id}/suspend": {
+      "post": {
+        "operationId": "suspend_group_admin_trade_groups__group_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeGroupAdminOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Suspend Group",
         "tags": [
           "admin"
         ]
@@ -2563,6 +3310,173 @@
         "summary": "Add Skill",
         "tags": [
           "artisans"
+        ]
+      }
+    },
+    "/artisans/{artisan_id}/trade-group-vouches": {
+      "get": {
+        "operationId": "my_vouches_artisans__artisan_id__trade_group_vouches_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artisan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artisan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VouchOut"
+                  },
+                  "title": "Response My Vouches Artisans  Artisan Id  Trade Group Vouches Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "My Vouches",
+        "tags": [
+          "trade-group vouches"
+        ]
+      },
+      "post": {
+        "description": "The 'Vouch from Trade-group' checkbox: e-mails the group a single-use confirmation link.",
+        "operationId": "request_vouch_artisans__artisan_id__trade_group_vouches_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artisan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artisan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VouchRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VouchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Request Vouch",
+        "tags": [
+          "trade-group vouches"
+        ]
+      }
+    },
+    "/artisans/{artisan_id}/trade-group-vouches/{vouch_id}/resend": {
+      "post": {
+        "operationId": "resend_artisans__artisan_id__trade_group_vouches__vouch_id__resend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artisan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artisan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "vouch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vouch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VouchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resend",
+        "tags": [
+          "trade-group vouches"
         ]
       }
     },
@@ -3979,6 +4893,159 @@
         "summary": "Create Skill",
         "tags": [
           "skills"
+        ]
+      }
+    },
+    "/trade-group-vouches/details": {
+      "get": {
+        "operationId": "vouch_details_trade_group_vouches_details_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 20,
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VouchDetailsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vouch Details",
+        "tags": [
+          "trade-group vouches"
+        ]
+      }
+    },
+    "/trade-group-vouches/respond": {
+      "post": {
+        "description": "The trade group's decision. Single use: the link stops working once it has been answered.",
+        "operationId": "respond_trade_group_vouches_respond_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VouchRespondIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VouchDetailsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Respond",
+        "tags": [
+          "trade-group vouches"
+        ]
+      }
+    },
+    "/trade-groups": {
+      "get": {
+        "description": "Active, e-mail-verified groups an artisan can ask. E-mail addresses are never exposed.",
+        "operationId": "list_trade_groups_trade_groups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TradeGroupPublicOut"
+                  },
+                  "title": "Response List Trade Groups Trade Groups Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Trade Groups",
+        "tags": [
+          "trade-group vouches"
+        ]
+      }
+    },
+    "/trade-groups/verify-email": {
+      "post": {
+        "operationId": "verify_group_email_trade_groups_verify_email_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeGroupPublicOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Group Email",
+        "tags": [
+          "trade-group vouches"
         ]
       }
     },

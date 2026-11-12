@@ -8,6 +8,7 @@ All verification here is SIMULATED.
 import argparse
 import json
 import random
+import re
 
 import httpx
 
@@ -176,11 +177,57 @@ def run(client, verifier_phone: str = VERIFIER_PHONE, password: str = DEMO_PASSW
     if verbose:
         print("\n[17d. Result]", refunded["status"], {p["payment_type"]: p["status"] for p in refunded["payments"]})
 
+    # ---- Fourth scenario: "Vouch from Trade-group" (e-mail confirmed; one group, many artisans) ----
+    def last_token(to: str) -> str:
+        mails = [m for m in client.get("/admin/dev/outbox", headers=admin).json() if m["to"] == to]
+        return re.search(r"token=([A-Za-z0-9_\-]+)", mails[-1]["body"]).group(1)
+
+    suffix = random.randint(1000, 9999)
+    group_email = f"contact{suffix}@molyko-masons.example"
+    group = show("18a. Admin registers a trade group (e-mails its address)", client.post("/admin/trade-groups", headers=admin, json={
+        "name": f"Molyko Electricians Guild {suffix}", "email": group_email, "description": "SIMULATED guild"}),
+        ("group_id", "status", "email_status"))
+    show("18b. Someone at that address confirms the e-mail", client.post("/trade-groups/verify-email", json={
+        "token": last_token(group_email)}), ("name",))
+    listed = client.get("/trade-groups").json()
+    assert all("email" not in g for g in listed)                    # the group's address stays private
+
+    vouched = []
+    for n, name in enumerate(("Peter Ayuk", "Quincy Tabe"), start=1):
+        phone = new_phone()
+        client.post("/auth/register", json={"phone": phone, "password": password, "role": "ARTISAN"})
+        headers = auth(phone)
+        profile = client.post("/artisans", headers=headers, json={
+            "full_name": name, "location": "Molyko, Buea"}).json()
+        client.post(f"/artisans/{profile['artisan_id']}/skills", headers=headers, json={
+            "skill_id": electrical, "proficiency_level": "INTERMEDIATE", "typical_price": 7000})
+        show(f"19.{n}a {name} ticks 'Vouch from Trade-group' -> the group is e-mailed",
+             client.post(f"/artisans/{profile['artisan_id']}/trade-group-vouches", headers=headers, json={
+                 "group_id": group["group_id"], "skill_id": electrical, "note": f"Member no. {100 + n}"}),
+             ("status", "email_status", "message"))
+        vouched.append((name, profile["artisan_id"], headers))
+    # Each artisan has their OWN e-mail and their OWN link
+    mails = [m for m in client.get("/admin/dev/outbox", headers=admin).json() if m["to"] == group_email][-2:]
+    tokens = [re.search(r"token=([A-Za-z0-9_\-]+)", m["body"]).group(1) for m in mails]
+    assert len(set(tokens)) == 2
+    show("20a. The group opens Peter's link (read-only, decides nothing)",
+         client.get("/trade-group-vouches/details", params={"token": tokens[0]}), ("artisan_name", "skill_name", "status"))
+    show("20b. The group CONFIRMS Peter", client.post("/trade-group-vouches/respond", json={
+        "token": tokens[0], "decision": "CONFIRM"}), ("artisan_name", "status"))
+    show("20c. ...and DECLINES Quincy (not confirmed => not qualified)", client.post("/trade-group-vouches/respond", json={
+        "token": tokens[1], "decision": "REJECT"}), ("artisan_name", "status"))
+    peter = client.get(f"/artisans/{vouched[0][1]}").json()
+    quincy = client.get(f"/artisans/{vouched[1][1]}").json()
+    if verbose:
+        print("\n[21. Result] Peter:", peter["skills"][0]["verification_status"], peter["trade_group_vouches"],
+              "| Quincy:", quincy["skills"][0]["verification_status"])
+    assert peter["skills"][0]["verification_status"] == "VERIFIED" and quincy["skills"][0]["verification_status"] != "VERIFIED"
+
     final_job = client.get(f"/jobs/{job_id}", headers=mary).json()
     if verbose:
         print("\nAudit trail:", " -> ".join(e["event_type"] for e in final_job["events"]))
     return {"artisan_id": artisan_id, "job": final_job, "matches": matches, "reputation": reputation,
-            "inspection_job": refunded}
+            "inspection_job": refunded, "peter": peter, "quincy": quincy}
 
 
 if __name__ == "__main__":

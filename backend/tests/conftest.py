@@ -62,6 +62,14 @@ def client(session_factory):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def empty_outbox():
+    from app.services.email_service import clear_outbox
+    clear_outbox()
+    yield
+    clear_outbox()
+
+
 @pytest.fixture
 def world(client, session_factory) -> World:
     return World(client, session_factory)

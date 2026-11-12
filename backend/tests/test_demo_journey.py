@@ -48,3 +48,8 @@ def test_demo_with_the_real_24_hour_probation(client, session_factory, monkeypat
     result = run(client, VERIFIER_PHONE, DEMO_PASSWORD, verbose=False)
     assert result["job"]["status"] == "COMPLETED"
     assert "PROBATION_SKIPPED" in [e["event_type"] for e in result["job"]["events"]]
+    # Trade-group scenario: one group, two artisans, two separate e-mail confirmations
+    assert result["peter"]["skills"][0]["verification_status"] == "VERIFIED"
+    assert result["peter"]["trade_group_vouches"][0]["group_name"].startswith("Molyko Electricians Guild")
+    assert result["quincy"]["skills"][0]["verification_status"] == "UNVERIFIED"
+    assert result["quincy"]["trade_group_vouches"] == []

@@ -9,11 +9,12 @@ from app.config import get_settings
 from app.database import get_db
 from app.models import ArtisanProfile, ArtisanSkill, Role, Skill, User
 from app.schemas import (
+    PublicVouchOut,
     ArtisanOut, ArtisanProfileIn, ArtisanProfileUpdate, ArtisanSkillIn, ArtisanSkillOut, EndorsementIn,
     EndorsementOut, ReputationOut,
 )
 from app.security.permissions import require_roles
-from app.services import reputation_service, verification_service
+from app.services import reputation_service, trade_group_service, verification_service
 
 router = APIRouter(prefix="/artisans", tags=["artisans"])
 
@@ -43,6 +44,11 @@ def build_artisan_out(db: Session, artisan: ArtisanProfile) -> ArtisanOut:
         whatsapp_available=bool(artisan.whatsapp_number), is_suspended=artisan.is_suspended,
         identity_verified=verification_service.is_identity_verified(db, artisan.artisan_id),
         skills=skills, endorsement_count=verification_service.count_endorsements(db, artisan.artisan_id),
+        trade_group_vouches=[
+            PublicVouchOut(group_name=v.group.name, skill_id=v.skill_id, skill_name=v.skill.skill_name,
+                           confirmed_at=v.decided_at)
+            for v in trade_group_service.list_for_artisan(db, artisan.artisan_id, confirmed_only=True)
+        ],
         reputation=reputation_out(reputation_service.get_reputation(db, artisan.artisan_id)),
         verification_mode=get_settings().verification_mode,
         verification_notice=verification_service.SIMULATION_NOTICE,

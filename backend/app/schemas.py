@@ -155,6 +155,7 @@ class ArtisanOut(BaseModel):
     identity_verified: bool
     skills: list[ArtisanSkillOut]
     endorsement_count: int
+    trade_group_vouches: list["PublicVouchOut"]
     reputation: ReputationOut
     verification_mode: str
     verification_notice: str
@@ -170,6 +171,101 @@ class EndorsementOut(ORM):
     endorsement_id: uuid.UUID
     artisan_id: uuid.UUID
     created_at: datetime
+
+
+# ------------------------------------------------------------------ trade groups
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+
+
+class TradeGroupIn(BaseModel):
+    name: str = Field(min_length=3, max_length=120)
+    email: str = Field(max_length=254, description="The group's official e-mail; a confirmation link is sent to it")
+    description: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, value: str) -> str:
+        value = value.strip().lower()
+        if not _EMAIL_RE.fullmatch(value):
+            raise ValueError("Enter a valid e-mail address")
+        return value
+
+
+class TradeGroupPublicOut(ORM):
+    """What artisans see when choosing a group. The group's e-mail address is NEVER included."""
+
+    group_id: uuid.UUID
+    name: str
+    description: str | None
+
+
+class TradeGroupAdminOut(BaseModel):
+    group_id: uuid.UUID
+    name: str
+    email: str
+    description: str | None
+    status: str
+    email_verified: bool
+    created_at: datetime
+    confirmed_vouches: int
+    pending_vouches: int
+    email_status: str | None = Field(default=None, description="SENT or FAILED for the message just sent")
+
+
+class VouchRequestIn(BaseModel):
+    group_id: uuid.UUID
+    skill_id: uuid.UUID
+    note: str | None = Field(default=None, max_length=500,
+                             description="Optional: membership number or how the group knows you")
+
+
+class VouchOut(BaseModel):
+    vouch_id: uuid.UUID
+    group_id: uuid.UUID
+    group_name: str
+    artisan_id: uuid.UUID
+    skill_id: uuid.UUID
+    skill_name: str
+    status: str = Field(description="PENDING_CONFIRMATION, CONFIRMED, REJECTED, EXPIRED or REVOKED")
+    artisan_note: str | None
+    created_at: datetime
+    decided_at: datetime | None
+    token_expires_at: datetime | None
+    email_status: str | None = Field(default=None, description="SENT or FAILED (use resend if FAILED)")
+    simulated_email: bool = Field(description="True when e-mail is in console mode: nothing was really sent")
+    message: str
+
+
+class PublicVouchOut(BaseModel):
+    group_name: str
+    skill_id: uuid.UUID
+    skill_name: str
+    confirmed_at: datetime | None
+
+
+class VouchDetailsOut(BaseModel):
+    """Shown to the trade group on the confirmation page. No phone numbers."""
+
+    group_name: str
+    artisan_name: str
+    artisan_location: str
+    skill_name: str
+    artisan_note: str | None
+    status: str
+    expires_at: datetime
+
+
+class VouchRespondIn(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    decision: Literal["CONFIRM", "REJECT"]
+
+
+class TokenIn(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+
+
+class RevokeVouchIn(BaseModel):
+    notes: str = Field(min_length=5, max_length=1000)
 
 
 # ------------------------------------------------------------------ verification

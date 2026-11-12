@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.errors import DomainError
 from app.routers import (
-    admin, artisans, auth, hardship, jobs, matching, payments, requests, reviews, skills, verification,
+    admin, artisans, auth, hardship, jobs, matching, payments, requests, reviews, skills, trade_groups, verification,
 )
 
 
@@ -48,5 +48,5 @@ def health() -> dict:
     return {"status": "ok", "app": "ACbridge"}
 
 
-for module in (auth, skills, artisans, verification, requests, matching, jobs, payments, hardship, reviews, admin):
+for module in (auth, skills, artisans, verification, requests, matching, jobs, payments, hardship, trade_groups, reviews, admin):
     app.include_router(module.router)

@@ -26,3 +26,7 @@ class NotFoundError(DomainError):
 
 class ConflictError(DomainError):
     status_code = 409
+
+
+class GoneError(DomainError):
+    status_code = 410

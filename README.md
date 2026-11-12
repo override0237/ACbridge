@@ -34,7 +34,7 @@ ACbridge/
     │   ├── services/          # business rules: verification, matching, reputation, job (state machine)
     │   └── security/          # authentication (Argon2id, JWT), permissions (RBAC), rate_limit
     ├── scripts/demo.py        # runs the whole John & Mary journey against a live API
-    ├── tests/                 # pytest suite (102 tests)
+    ├── tests/                 # pytest suite (124 tests)
     ├── requirements.txt  .env.example  docker-compose.yml  pytest.ini
 ```
 
@@ -80,7 +80,8 @@ ACbridge/
 5. **Payment flow & breaking changes.** `POST /jobs` takes `proposed_price` (was `agreed_price`). For a normal job, `accept` now starts a probation (`probation_active`, `probation_ends_at` on the job; show a countdown) and returns **no** `payment_due`; after it ends the artisan calls `confirm-terms` to get the `payment_due`. The customer pays via `POST /jobs/{id}/pay` (blocked during probation). Use `can_cancel_freely` to decide whether to show a Cancel button; a confirmed job offers "Report a serious problem" (hardship claim) instead. Match results include `contact` (WhatsApp). See §6b and `openapi.json`.
 6. **Errors.** Failures return `{"detail": "..."}`; validation errors (`422`) return `detail` as a list.
    Show the string to the user. IDs are UUID strings; money is integer FCFA; dates are ISO-8601 UTC.
-7. **Run both:** terminal 1 `cd backend && uvicorn app.main:app --reload`; terminal 2 `cd frontend && npm run dev`.
+7. **Trade-group vouch checkbox:** see `docs/FRONTEND_TRADE_GROUP_VOUCH.md`. Individual endorsements are now limited to one artisan per person (`409` otherwise).
+8. **Run both:** terminal 1 `cd backend && uvicorn app.main:app --reload`; terminal 2 `cd frontend && npm run dev`.
 
 > If your frontend already calls endpoints with different names or fields than this API, share its
 > folder (or the list of calls it makes) and the two sides can be aligned deliberately.
@@ -165,7 +166,7 @@ pytest                                   # in-memory SQLite, no setup, ~35 s
 TEST_DATABASE_URL=postgresql+psycopg://acbridge:acbridge@localhost:5432/acbridge_test pytest   # real PostgreSQL
 ```
 
-Both modes pass (**102 on PostgreSQL; SQLite runs 101 and skips the concurrency test**, because
+Both modes pass (**124 on PostgreSQL; SQLite runs 123 and skips the concurrency test**, because
 row locks need PostgreSQL). The tests cover every rule in the brief: auth, self-endorsement,
 unauthorised verification, the approval workflow, eligibility/ranking maths, job state machine,
 duplicate/unrelated confirmations, review rules, Bayesian reputation, DB-level constraints
@@ -216,6 +217,7 @@ Audit trail: `JOB_REQUESTED → JOB_ACCEPTED → JOB_STARTED → COMPLETION_CONF
 | Verification | `POST/GET /verifications`, `GET /verifications/{id}`, `POST /verifications/{id}/decision`, `POST/GET /verifications/{id}/evidence` |
 | Requests / matching | `POST /service-requests`, `GET /service-requests/{id}`, `GET /matches/{request_id}` |
 | Jobs | `POST /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/accept`, `/confirm-terms`, `/pay`, `/quote`, `/quote/respond`, `/start`, `/confirm-completion`, `/cancel`, `/dispute` |
+| Trade-group vouches | `GET /trade-groups`, `POST/GET /artisans/{id}/trade-group-vouches`, `…/{vouch_id}/resend`; trade group (via e-mail link): `GET/POST /trade-group-vouches/confirm-page`, `/details`, `/respond`; admin: `POST/GET /admin/trade-groups`, `/admin/trade-group-vouches/{id}/revoke`, `GET /admin/dev/outbox` (simulation) |
 | Hardship claims | `POST /jobs/{id}/hardship-claims`, `POST/GET /hardship-claims/{id}/document`, `GET /hardship-claims/{id}`, admin: `GET /admin/hardship-claims`, `POST /admin/hardship-claims/{id}/decision` |
 | Payments | `GET /pricing`, `GET /jobs/{id}/payments`, `GET /payments/{id}`, `POST /payments/{id}/simulate-approval`, `/simulate-failure` (simulated mode only) |
 | Reviews | `POST /jobs/{id}/reviews`, `GET /reviews/mine` |
@@ -294,6 +296,30 @@ started/completed job with no agreed price and one open hardship claim per job; 
 (or `/simulate-failure`), and `POST /admin/jobs/{id}/skip-probation` lets a demo skip the 24 hours. These routes are
 for the simulator only; the app **refuses to start in production with the simulated provider**, where a signed provider
 webhook would call `job_service.settle_payment` instead.
+
+## 6c. "Vouch from Trade-group" (e-mail confirmed)
+
+A **trade group** (guild / association) can vouch for **many** artisans; an individual endorser can vouch for **only one**
+artisan (enforced by a database constraint). A confirmed vouch from a **single** trade group **automatically verifies** that
+skill, but only after the group itself confirms by e-mail, and the process **repeats for every new artisan**.
+
+1. **Onboarding.** An admin contacts the group and registers it (`POST /admin/trade-groups`). The platform e-mails the group's
+   address a one-time link; the group is **unusable until someone at that address confirms it**. Its e-mail is never shown publicly.
+2. **Request.** The artisan ticks **"Vouch from Trade-group"**, picks a group and one of their skills
+   (`POST /artisans/{id}/trade-group-vouches`). The group is e-mailed the artisan's name, area, skill and note, with a single-use link.
+3. **Confirmation.** The group opens the link (a page served by the backend; **no account or frontend needed**) and chooses
+   **Yes / No**. Opening the link decides nothing, so mail scanners cannot confirm by accident. Confirm → the skill becomes `VERIFIED`
+   (audited as an approved verification check with no human verifier, explaining why) and a public badge appears on the profile. No → nothing changes; the artisan must wait 7 days to ask that group again.
+4. **Next artisan, same process.** Each vouch gets its own e-mail and token; confirming one never qualifies another.
+
+Safeguards: 256-bit random tokens, only their SHA-256 stored, single use, expire after 7 days (`VOUCH_TOKEN_TTL_HOURS`), resend invalidates the old link;
+confirmation pages escape all input and send CSP / no-store headers; request/resend/link endpoints are rate-limited; an admin can **revoke** a confirmed vouch
+(the skill reverts to `UNVERIFIED` unless a verifier also approved it) or suspend a group; admins see per-group confirmed/pending counts.
+`TRADE_GROUP_VOUCH_AUTO_VERIFIES=false` makes a vouch count only as the community proof (a verifier must still approve).
+
+**E-mail is SIMULATED by default** (`EMAIL_MODE=console`: kept in memory, readable by admins at `GET /admin/dev/outbox`; nothing is sent).
+`EMAIL_MODE=smtp` plus `SMTP_*` really sends; the SMTP sender is unit-tested against a fake server only, so test it with your mail provider before relying on it.
+The app refuses to start in production in console mode. **Frontend:** see [`docs/FRONTEND_TRADE_GROUP_VOUCH.md`](docs/FRONTEND_TRADE_GROUP_VOUCH.md) for the checkbox component and API calls.
 
 ## 7. Engineering theory — what is implemented vs. only theoretical
 

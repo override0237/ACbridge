@@ -41,6 +41,24 @@ class Settings(BaseSettings):
     commission_min: int = 300
     inspection_assignment_fee: int = 1000
 
+    # --- trade-group vouches ---
+    # A confirmed vouch from a vetted trade group automatically verifies that skill (no extra verifier step).
+    trade_group_vouch_auto_verifies: bool = True
+    vouch_token_ttl_hours: int = 168            # how long the emailed confirmation link stays valid (7 days)
+    vouch_reject_cooldown_days: int = 7         # an artisan cannot re-ask a group that just said no
+    # Where the emailed links point. The backend hosts a simple confirmation page, so trade groups (who have no
+    # account) can confirm even without the frontend. Set PUBLIC_API_URL to the deployed API address.
+    public_api_url: str = "http://localhost:8000"
+
+    # Email: "console" only records messages in memory (SIMULATED, nothing is sent); "smtp" really sends.
+    email_mode: str = "console"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_use_tls: bool = True
+
     # Cooling-off ("probation") after the price is agreed: either side may walk away for free, and no fee or
     # escrow can be paid until it ends. 0 disables it (used by the automated tests).
     probation_hours: int = 24
@@ -63,6 +81,10 @@ class Settings(BaseSettings):
     def _refuse_insecure_secret_in_production(self) -> "Settings":
         if self.environment.lower() == "production" and self.jwt_secret == _INSECURE_DEFAULT_SECRET:
             raise ValueError("JWT_SECRET must be set to a strong random value in production")
+        if self.email_mode == "smtp" and not (self.smtp_host and self.smtp_from):
+            raise ValueError("EMAIL_MODE=smtp needs SMTP_HOST and SMTP_FROM")
+        if self.environment.lower() == "production" and self.email_mode == "console":
+            raise ValueError("EMAIL_MODE=console sends nothing; use smtp in production")
         if self.environment.lower() == "production" and self.payment_provider == "simulated":
             raise ValueError("The simulated payment provider moves no real money and cannot run in production")
         return self

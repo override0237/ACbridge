@@ -87,6 +87,20 @@ class JobStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
+class TradeGroupStatus(str, enum.Enum):
+    PENDING_EMAIL_VERIFICATION = "PENDING_EMAIL_VERIFICATION"  # registered, address not yet confirmed by the group
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+
+
+class VouchStatus(str, enum.Enum):
+    PENDING_CONFIRMATION = "PENDING_CONFIRMATION"  # email sent, waiting for the trade group
+    CONFIRMED = "CONFIRMED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
+    REVOKED = "REVOKED"                            # an administrator withdrew a confirmed vouch
+
+
 class HardshipKind(str, enum.Enum):
     DEATH = "DEATH"                                    # proof: death certificate
     ACCIDENT_OR_SERIOUS_ILLNESS = "ACCIDENT_OR_SERIOUS_ILLNESS"  # proof: medical records
@@ -233,6 +247,8 @@ class Endorsement(Base):
     __tablename__ = "endorsements"
     __table_args__ = (
         UniqueConstraint("artisan_id", "endorser_id", name="uq_endorsements_artisan_endorser"),
+        # An individual may vouch for ONE artisan only. Only trade groups (trade_group_vouches) can vouch for many.
+        UniqueConstraint("endorser_id", name="uq_endorsements_one_artisan_per_endorser"),
         Index("ix_endorsements_artisan_id", "artisan_id"),
     )
 
@@ -402,6 +418,73 @@ class Payment(Base):
 
     job: Mapped[Job] = relationship(back_populates="payments")
     payer: Mapped[User] = relationship()
+
+
+# --------------------------------------------------------------------------- M. trade_groups
+class TradeGroup(Base):
+    """A trade association / guild that can vouch for MANY artisans (individual endorsers are limited to one).
+
+    An administrator registers the group after contacting it; the group's e-mail address must then be
+    confirmed through a one-time link before the group can be used. The address is private (never exposed
+    on public endpoints).
+    """
+
+    __tablename__ = "trade_groups"
+    __table_args__ = (CheckConstraint(_in("status", TradeGroupStatus), name="status_valid"),)
+
+    group_id: Mapped[uuid.UUID] = _uuid_pk()
+    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)   # stored lower-case
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=TradeGroupStatus.PENDING_EMAIL_VERIFICATION.value,
+        server_default=TradeGroupStatus.PENDING_EMAIL_VERIFICATION.value,
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    # Only the SHA-256 of the one-time token is stored, so a database leak cannot be used to confirm anything.
+    verification_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _created_at()
+
+    vouches: Mapped[list["TradeGroupVouch"]] = relationship(back_populates="group")
+
+
+# --------------------------------------------------------------------------- N. trade_group_vouches
+class TradeGroupVouch(Base):
+    """One trade group vouching for one artisan's skill. EVERY new artisan needs its own e-mail confirmation."""
+
+    __tablename__ = "trade_group_vouches"
+    __table_args__ = (
+        CheckConstraint(_in("status", VouchStatus), name="status_valid"),
+        # No duplicate open/confirmed vouch for the same group + artisan + skill.
+        Index("uq_vouch_one_active_per_group_artisan_skill", "group_id", "artisan_id", "skill_id", unique=True,
+              postgresql_where=text("status IN ('PENDING_CONFIRMATION', 'CONFIRMED')"),
+              sqlite_where=text("status IN ('PENDING_CONFIRMATION', 'CONFIRMED')")),
+        Index("ix_trade_group_vouches_artisan_id", "artisan_id"),
+        Index("ix_trade_group_vouches_group_id_status", "group_id", "status"),
+    )
+
+    vouch_id: Mapped[uuid.UUID] = _uuid_pk()
+    group_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("trade_groups.group_id"), nullable=False)
+    artisan_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("artisan_profiles.artisan_id"), nullable=False)
+    skill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("skills.skill_id"), nullable=False)
+    requested_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    artisan_note: Mapped[str | None] = mapped_column(Text)   # e.g. membership number, how the group knows them
+    status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default=VouchStatus.PENDING_CONFIRMATION.value,
+        server_default=VouchStatus.PENDING_CONFIRMATION.value,
+    )
+    token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)   # cleared once used => single use
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_check_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("verification_checks.check_id"))
+    decision_notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    group: Mapped[TradeGroup] = relationship(back_populates="vouches")
+    artisan: Mapped[ArtisanProfile] = relationship()
+    skill: Mapped[Skill] = relationship()
 
 
 # --------------------------------------------------------------------------- L. hardship_claims

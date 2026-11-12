@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import (
     ArtisanProfile, ArtisanSkill, CheckStatus, CheckType, Endorsement, Job, JobEvent, JobStatus, Review,
-    RequestStatus, Role, ServiceRequest, Skill, User, VerificationCheck,
+    RequestStatus, Role, ServiceRequest, Skill, TradeGroup, User, VerificationCheck,
 )
 from app.security.authentication import hash_password
 
@@ -63,7 +63,6 @@ def seed(db: Session) -> None:
     db.add_all(skills.values())
     db.flush()
 
-    endorsers = [_user(db, f"+23769000002{i}", Role.CUSTOMER.value) for i in range(2)]
     history_customer = _user(db, "+237690000030", Role.CUSTOMER.value)
     now = datetime.now(timezone.utc)
 
@@ -80,7 +79,9 @@ def seed(db: Session) -> None:
             artisan_id=artisan.artisan_id, skill_id=skill.skill_id, proficiency_level=level, typical_price=price,
             verification_status="VERIFIED" if verified else "UNVERIFIED"))
         if verified:
-            for endorser in endorsers:
+            # Individuals can vouch for only ONE artisan, so each verified artisan gets their own two endorsers.
+            for n in range(2):
+                endorser = _user(db, f"+2376910{ARTISANS.index((name, phone, location, skill_name, level, price, availability, verified, ratings)):02d}{n}00", Role.CUSTOMER.value)
                 db.add(Endorsement(artisan_id=artisan.artisan_id, endorser_id=endorser.user_id,
                                    evidence_description="SIMULATED endorsement for demo data."))
             db.add(VerificationCheck(
@@ -105,6 +106,11 @@ def seed(db: Session) -> None:
                             event_metadata={"simulated_seed": True}))
             db.add(Review(job_id=job.job_id, reviewer_id=history_customer.user_id, rating=rating,
                           comment="SIMULATED review"))
+    # An active, e-mail-verified trade group (SIMULATED). More groups are added by an admin via the API.
+    admin = db.scalar(select(User).where(User.phone == ADMIN_PHONE))
+    db.add(TradeGroup(name="Buea Electricians Association", email="contact@buea-electricians.example",
+                      description="SIMULATED demo trade group", status="ACTIVE", created_by=admin.user_id,
+                      email_verified_at=now))
     db.commit()
     print(f"Seeded. Admin {ADMIN_PHONE}, verifier {VERIFIER_PHONE}, password: {DEMO_PASSWORD}")
 
