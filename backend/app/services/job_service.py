@@ -80,6 +80,7 @@ def get_job_for_party(db: Session, user: User, job_id: uuid.UUID) -> Job:
         raise NotFoundError("Job not found")
     if user.role != Role.ADMIN.value and party_of(job, user) is None:
         raise PermissionDeniedError("You are not a party to this job")
+    expire_if_stale(db, job)   # reading an overdue offer nullifies it
     return job
 
 
@@ -144,11 +145,45 @@ def split_model() -> bool:
     return get_settings().commission_model == "customer_split"
 
 
-def _require_quote_not_expired(job: Job) -> None:
-    """A proposed price is only valid for quote_ttl_hours. Once the artisan has agreed, the price is frozen."""
-    ttl = get_settings().quote_ttl_hours
-    if ttl > 0 and not job.artisan_agreed and _now() > _aware(job.created_at) + timedelta(hours=ttl):
-        raise ConflictError(f"This price proposal expired after {ttl} hours: ask for a new one")
+def offer_ttl(job: Job) -> timedelta:
+    """How long the artisan has to accept: 1 hour for an urgent (TODAY) request, 1 day for THIS_WEEK, 5 days for NOT_URGENT."""
+    settings = get_settings()
+    hours = {"TODAY": settings.offer_ttl_hours_today, "THIS_WEEK": settings.offer_ttl_hours_this_week}.get(
+        job.request.urgency, settings.offer_ttl_hours_not_urgent)
+    return timedelta(hours=hours)
+
+
+def offer_expires_at(job: Job) -> datetime | None:
+    """Deadline for the artisan's answer. None once the offer has been answered (accepted, cancelled, ...)."""
+    if job.status != S.REQUESTED.value or job.artisan_agreed:
+        return None
+    return _aware(job.created_at) + offer_ttl(job)
+
+
+def offer_expired(job: Job) -> bool:
+    deadline = offer_expires_at(job)
+    return deadline is not None and _now() > deadline
+
+
+def expire_if_stale(db: Session, job: Job) -> bool:
+    """Nullify an unanswered offer that is past its deadline: the job is CANCELLED. Returns True if it expired.
+    Runs lazily whenever the job is read or answered, and in bulk through sweep_expired_offers."""
+    if not offer_expired(job):
+        return False
+    system = job.artisan.user   # the offer lapsed on its own; the event is recorded against the artisan it was sent to
+    _transition(db, job, S.CANCELLED.value, system, "JOB_OFFER_EXPIRED",
+                {"urgency": job.request.urgency, "expired_after_hours": offer_ttl(job).total_seconds() / 3600})
+    db.commit()
+    return True
+
+
+def sweep_expired_offers(db: Session) -> int:
+    """Expire every stale offer (call it from a scheduler, or from the admin endpoint). Returns how many expired."""
+    count = 0
+    for job_id in list(db.scalars(select(Job.job_id).where(Job.status == S.REQUESTED.value, Job.artisan_agreed.is_(False)))):
+        job = _lock_job(db, job_id)
+        count += 1 if expire_if_stale(db, job) else 0
+    return count
 
 
 def _require_probation_over(job: Job) -> None:
@@ -213,7 +248,8 @@ def accept_job(db: Session, user: User, job_id: uuid.UUID) -> Job:
     if job.status != S.REQUESTED.value:
         raise ConflictError(f"A {job.status} job cannot be accepted")
     _require_artisan_in_good_standing(job)
-    _require_quote_not_expired(job)
+    if expire_if_stale(db, job):
+        raise ConflictError("This job offer expired because it was not accepted in time, so it was cancelled")
 
     if job.pricing_mode == PricingMode.FIXED_PRICE.value:
         if not job.artisan_agreed:

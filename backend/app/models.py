@@ -292,6 +292,7 @@ class ServiceRequest(Base):
     __table_args__ = (
         CheckConstraint(_in("status", RequestStatus), name="status_valid"),
         CheckConstraint("budget IS NULL OR budget >= 0", name="budget_non_negative"),
+        CheckConstraint("urgency IN ('TODAY', 'THIS_WEEK', 'NOT_URGENT')", name="urgency_valid"),
         Index("ix_service_requests_status", "status"),
         Index("ix_service_requests_skill_id", "skill_id"),
         Index("ix_service_requests_customer_id", "customer_id"),
@@ -306,6 +307,8 @@ class ServiceRequest(Base):
     budget: Mapped[int | None] = mapped_column(Integer)  # FCFA has no minor unit, so integers are exact
     # True when the problem must be examined before a price can be given (-> INSPECTION_REQUIRED job).
     needs_inspection: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # How soon the customer needs the work. It sets how long the artisan has to accept (see job_service.offer_ttl).
+    urgency: Mapped[str] = mapped_column(String(12), nullable=False, default="NOT_URGENT", server_default="NOT_URGENT")
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, default=RequestStatus.OPEN.value, server_default=RequestStatus.OPEN.value
     )

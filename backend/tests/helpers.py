@@ -104,10 +104,11 @@ class World:
 
     # ---- requests / jobs -------------------------------------------------------------------
     def request(self, customer: Actor, skill_id: str, location: str = "Small Soppo, Buea",
-                budget: int | None = 10000, needs_inspection: bool = False) -> str:
+                budget: int | None = 10000, needs_inspection: bool = False, urgency: str = "NOT_URGENT") -> str:
         res = self.client.post("/service-requests", headers=customer.headers, json={
             "skill_id": skill_id, "description": "Fix the faulty wiring in the kitchen", "location": location,
-            "budget": budget, "needs_inspection": needs_inspection})
+            "budget": budget, "needs_inspection": needs_inspection,
+            "urgency": urgency})
         assert res.status_code == 201, res.text
         return res.json()["request_id"]
 

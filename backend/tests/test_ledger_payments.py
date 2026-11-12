@@ -148,13 +148,14 @@ def test_an_expired_price_proposal_cannot_be_accepted(world, split, session_fact
     skill_id = world.skill()
     customer = world.user("CUSTOMER")
     artisan = world.artisan(skill_id, "John Fon")
-    job_id = world.job(customer, artisan, world.request(customer, skill_id), price=6000)
+    job_id = world.job(customer, artisan, world.request(customer, skill_id, urgency="TODAY"), price=6000)
     with session_factory() as db:
         job = db.get(Job, job_id if not isinstance(job_id, str) else __import__("uuid").UUID(job_id))
-        job.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        job.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
         db.commit()
     res = world.client.post(f"/jobs/{job_id}/accept", headers=artisan.headers)
     assert res.status_code == 409 and "expired" in res.json()["detail"]
+    assert world.client.get(f"/jobs/{job_id}", headers=customer.headers).json()["status"] == "CANCELLED"
 
 
 # ------------------------------------------------------------------ 5. webhook security

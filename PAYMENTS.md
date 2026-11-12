@@ -20,7 +20,7 @@ requirement to what exists.
 | Idempotency | `Idempotency-Key` header on `POST /jobs/{id}/pay`, plus one live payment per job (partial unique index) |
 | Amount never from the client | `pay_job` reads `agreed_price` from the database; the request body is ignored |
 | Per-phone rate limit | 5 payment starts per phone per 10 minutes (`PAY_RATE_LIMIT_CALLS`, `PAY_RATE_LIMIT_WINDOW_SECONDS`) |
-| Quote expiry | a proposed price older than `QUOTE_TTL_HOURS` (24) cannot be accepted; once accepted the price is frozen |
+| Offer expiry | an offer the artisan does not accept in time is cancelled: 1 hour (urgent), 1 day (this week) or 5 days (not urgent), see `OFFER_TTL_HOURS_*`; once accepted the price is frozen |
 | Audit log with payload hashes | `audit_log` table (append-only), SHA-256 of the canonical payload, never the payload |
 | Contact details locked until paid | in `customer_split` mode the counterpart phone and WhatsApp link are hidden until the payment succeeded |
 | Operator panel API | `GET /operator/payments`, `/operator/ledger`, `/operator/payouts`, `POST /operator/payouts/{id}/hold`, `/release` (reason required), `GET /operator/reconciliation`, `GET /operator/audit` (administrator role) |
@@ -77,7 +77,7 @@ No software can stop a customer and an artisan from handing each other cash. Thi
 
 ## Settings (all from environment variables, see `backend/.env.example`)
 
-`COMMISSION_MODEL`, `COMMISSION_RATE_BPS`, `COMMISSION_MIN`, `QUOTE_TTL_HOURS`, `DISPUTE_WINDOW_HOURS`, `WEBHOOK_SECRET` (required in production),
+`COMMISSION_MODEL`, `COMMISSION_RATE_BPS`, `COMMISSION_MIN`, `OFFER_TTL_HOURS_TODAY` / `_THIS_WEEK` / `_NOT_URGENT`, `DISPUTE_WINDOW_HOURS`, `WEBHOOK_SECRET` (required in production),
 `PAY_RATE_LIMIT_CALLS`, `PAY_RATE_LIMIT_WINDOW_SECONDS`, `PAYMENT_PROVIDER`.
 
 `DISPUTE_WINDOW_HOURS` (48) is configurable but not yet enforced: disputes can currently be opened any time before completion.

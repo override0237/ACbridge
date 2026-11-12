@@ -36,6 +36,12 @@ def _set_suspended(db: Session, artisan_id: uuid.UUID, value: bool) -> dict:
     return {"artisan_id": artisan_id, "is_suspended": value}
 
 
+@router.post("/expire-offers")
+def expire_offers(_: User = AdminUser, db: Session = Depends(get_db)) -> dict:
+    """Cancel every job offer the artisan did not accept in time (1 hour urgent, 1 day this week, 5 days not urgent)."""
+    return {"expired": job_service.sweep_expired_offers(db)}
+
+
 @router.post("/artisans/{artisan_id}/suspend")
 def suspend(artisan_id: uuid.UUID, _: User = AdminUser, db: Session = Depends(get_db)) -> dict:
     return _set_suspended(db, artisan_id, True)
