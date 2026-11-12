@@ -116,5 +116,12 @@ def seed(db: Session) -> None:
 
 
 if __name__ == "__main__":
+    from app.config import get_settings
+
+    if get_settings().environment.lower() != "development" and "SEED_PASSWORD" not in os.environ:
+        raise SystemExit(
+            "Refusing to seed a non-development database with the PUBLIC default password. "
+            "Set SEED_PASSWORD to a private value first."
+        )
     with SessionLocal() as session:
         seed(session)

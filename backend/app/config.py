@@ -1,7 +1,7 @@
 """Central configuration. Every secret / environment-specific value comes from env vars."""
 from functools import lru_cache
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _INSECURE_DEFAULT_SECRET = "dev-only-insecure-secret-change-me-before-production"
@@ -69,6 +69,16 @@ class Settings(BaseSettings):
     # HONESTY FLAG: no real-world identity/skill assessment happens in this MVP.
     verification_mode: str = "SIMULATED"
 
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg_driver(cls, url: str) -> str:
+        """Hosting providers (Render, Neon, Railway...) hand out `postgres://` or `postgresql://` URLs; make
+        SQLAlchemy use the psycopg v3 driver this project ships with."""
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix):]
+        return url
+
     @property
     def supported_town_set(self) -> frozenset[str]:
         return frozenset(t.strip().lower() for t in self.supported_towns.split(",") if t.strip())
@@ -79,8 +89,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _refuse_insecure_secret_in_production(self) -> "Settings":
-        if self.environment.lower() == "production" and self.jwt_secret == _INSECURE_DEFAULT_SECRET:
-            raise ValueError("JWT_SECRET must be set to a strong random value in production")
+        if self.environment.lower() != "development" and self.jwt_secret == _INSECURE_DEFAULT_SECRET:
+            raise ValueError("JWT_SECRET must be set to a strong random value outside local development")
         if self.email_mode == "smtp" and not (self.smtp_host and self.smtp_from):
             raise ValueError("EMAIL_MODE=smtp needs SMTP_HOST and SMTP_FROM")
         if self.environment.lower() == "production" and self.email_mode == "console":

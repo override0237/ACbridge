@@ -321,6 +321,10 @@ confirmation pages escape all input and send CSP / no-store headers; request/res
 `EMAIL_MODE=smtp` plus `SMTP_*` really sends; the SMTP sender is unit-tested against a fake server only, so test it with your mail provider before relying on it.
 The app refuses to start in production in console mode. **Frontend:** see [`docs/FRONTEND_TRADE_GROUP_VOUCH.md`](docs/FRONTEND_TRADE_GROUP_VOUCH.md) for the checkbox component and API calls.
 
+## 6d. Free hosting
+
+See [`docs/DEPLOY_FREE.md`](docs/DEPLOY_FREE.md): frontend on Vercel (`acbridge.vercel.app`), API on Render, database on Neon. `backend/Dockerfile`, `backend/start.sh` and `render.yaml` are included. Outside local development the app refuses the default JWT secret, and the seed refuses the public default password.
+
 ## 7. Engineering theory — what is implemented vs. only theoretical
 
 | Concept | Where / status |

@@ -1,0 +1,25 @@
+# Render Blueprint (free web service). Create it from the Render dashboard: New -> Blueprint -> pick this repo.
+# The database is NOT created here: use a free external Postgres (e.g. Neon) and paste its URL as DATABASE_URL.
+# NOTE: written from Render's documented format but not validated against Render from this environment.
+services:
+  - type: web
+    name: acbridge-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: demo                    # anything except "development": enforces strong secrets
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false                    # paste your Postgres connection string in the dashboard
+      - key: SEED_DEMO_DATA
+        value: "true"
+      - key: SEED_PASSWORD
+        sync: false                    # choose a private password for the seeded admin/verifier/demo users
+      - key: CORS_ORIGINS
+        sync: false                    # your frontend's URL, e.g. https://acbridge.netlify.app
+      - key: PUBLIC_API_URL
+        sync: false                    # this service's URL, e.g. https://acbridge-api.onrender.com
