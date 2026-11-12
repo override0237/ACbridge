@@ -14,7 +14,6 @@ a real-world assessment (ID inspection, practical test). The API labels every ve
 """
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.errors import BadRequestError, ConflictError, NotFoundError, PermissionDeniedError
+from app.services import file_storage
 from app.models import (
     ArtisanProfile, ArtisanSkill, CheckStatus, CheckType, Endorsement, Role, SkillVerificationStatus, User,
     VerificationCheck,
@@ -192,33 +192,13 @@ def _sync_skill_status(db: Session, check: VerificationCheck) -> None:
 
 
 # ----------------------------------------------------------------------------- evidence upload
-_ALLOWED_SIGNATURES = {
-    ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",), ".png": (b"\x89PNG\r\n\x1a\n",), ".pdf": (b"%PDF-",),
-}
-
-
 def save_evidence_file(db: Session, user: User, check_id: uuid.UUID, filename: str, data: bytes) -> VerificationCheck:
-    settings = get_settings()
     check = db.get(VerificationCheck, check_id)
     if check is None or check.artisan.user_id != user.user_id:
         raise NotFoundError("Verification request not found")  # don't reveal other people's records
     if check.status not in (CheckStatus.PENDING.value, CheckStatus.NEEDS_MORE_EVIDENCE.value):
         raise ConflictError("Evidence can only be added while the request is PENDING or NEEDS_MORE_EVIDENCE")
-    if len(data) == 0 or len(data) > settings.max_evidence_bytes:
-        raise BadRequestError(f"File must be between 1 byte and {settings.max_evidence_bytes} bytes")
-
-    extension = Path(filename or "").suffix.lower()
-    signatures = _ALLOWED_SIGNATURES.get(extension)
-    # Check the extension AND the real file header: a renamed .exe is rejected.
-    if signatures is None or not data.startswith(signatures):
-        raise BadRequestError("Only genuine JPG, PNG or PDF files are accepted")
-
-    # Server-generated name: the client-supplied filename is never used on disk (blocks path traversal).
-    folder = Path(settings.evidence_upload_dir) / str(check.check_id)
-    folder.mkdir(parents=True, exist_ok=True)
-    stored = folder / f"{uuid.uuid4().hex}{extension}"
-    stored.write_bytes(data)
-    check.evidence_file_path = str(stored)
+    check.evidence_file_path = file_storage.store_private_file("verification", check.check_id, filename, data)
     if check.status == CheckStatus.NEEDS_MORE_EVIDENCE.value:
         check.status = CheckStatus.PENDING.value
         check.verifier_id = None

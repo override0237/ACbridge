@@ -70,7 +70,9 @@ def seed(db: Session) -> None:
     for name, phone, location, skill_name, level, price, availability, verified, ratings in ARTISANS:
         owner = _user(db, phone, Role.ARTISAN.value)
         artisan = ArtisanProfile(user_id=owner.user_id, full_name=name, location=location,
-                                 availability_status=availability, description="SIMULATED demo artisan")
+                                 availability_status=availability, description="SIMULATED demo artisan",
+                                 # Paul and Grace opted in to WhatsApp; the others did not (shows both cases).
+                                 whatsapp_number=phone if name in ("Paul Tabi", "Grace Ndifor") else None)
         db.add(artisan)
         db.flush()
         skill = skills[skill_name]
@@ -94,6 +96,7 @@ def seed(db: Session) -> None:
             db.flush()
             done_at = now - timedelta(days=30 - i)
             job = Job(request_id=req.request_id, artisan_id=artisan.artisan_id, agreed_price=price,
+                      proposed_price=price, proposed_by="CUSTOMER", artisan_agreed=True,
                       status=JobStatus.COMPLETED.value, customer_confirmed=True, artisan_confirmed=True,
                       completed_at=done_at)
             db.add(job)

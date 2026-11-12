@@ -104,29 +104,66 @@ class World:
 
     # ---- requests / jobs -------------------------------------------------------------------
     def request(self, customer: Actor, skill_id: str, location: str = "Small Soppo, Buea",
-                budget: int | None = 10000) -> str:
+                budget: int | None = 10000, needs_inspection: bool = False) -> str:
         res = self.client.post("/service-requests", headers=customer.headers, json={
             "skill_id": skill_id, "description": "Fix the faulty wiring in the kitchen", "location": location,
-            "budget": budget})
+            "budget": budget, "needs_inspection": needs_inspection})
         assert res.status_code == 201, res.text
         return res.json()["request_id"]
 
-    def job(self, customer: Actor, artisan: Actor, request_id: str, price: int = 9000) -> str:
+    def job(self, customer: Actor, artisan: Actor, request_id: str, price: int | None = 9000) -> str:
         res = self.client.post("/jobs", headers=customer.headers, json={
-            "request_id": request_id, "artisan_id": artisan.artisan_id, "agreed_price": price})
+            "request_id": request_id, "artisan_id": artisan.artisan_id, "proposed_price": price})
         assert res.status_code == 201, res.text
         return res.json()["job_id"]
+
+    # ---- payments (SIMULATED provider: "approving" stands in for the mobile-money prompt) ----------
+    def approve(self, payment_id: str, payer: Actor) -> dict:
+        res = self.client.post(f"/payments/{payment_id}/simulate-approval", headers=payer.headers)
+        assert res.status_code == 200, res.text
+        return res.json()
+
+    def fee_due(self, job_id: str, artisan: Actor) -> dict:
+        """Artisan agrees (and, for fixed-price jobs, confirms after probation) -> the fee payment to approve."""
+        res = self.client.post(f"/jobs/{job_id}/accept", headers=artisan.headers)
+        assert res.status_code == 200, res.text
+        due = res.json()["payment_due"]
+        if due is None:   # fixed price: the commission is created by the final confirmation
+            res = self.client.post(f"/jobs/{job_id}/confirm-terms", headers=artisan.headers)
+            assert res.status_code == 200, res.text
+            due = res.json()["payment_due"]
+        return due
+
+    def accept(self, job_id: str, artisan: Actor) -> dict:
+        """Artisan agrees, confirms and pays the platform fee -> job ACCEPTED."""
+        self.approve(self.fee_due(job_id, artisan)["payment_id"], artisan)
+        return self.client.get(f"/jobs/{job_id}", headers=artisan.headers).json()
+
+    def fund(self, job_id: str, customer: Actor) -> dict:
+        """Customer pays the agreed price into escrow."""
+        res = self.client.post(f"/jobs/{job_id}/pay", headers=customer.headers)
+        assert res.status_code == 201, res.text
+        return self.approve(res.json()["payment_id"], customer)
+
+    def work_started(self, customer: Actor, artisan: Actor, job_id: str) -> None:
+        self.accept(job_id, artisan)
+        self.fund(job_id, customer)
+        res = self.client.post(f"/jobs/{job_id}/start", headers=artisan.headers)
+        assert res.status_code == 200, res.text
+
+    def complete(self, customer: Actor, artisan: Actor, job_id: str) -> None:
+        for actor in (customer, artisan):
+            res = self.client.post(f"/jobs/{job_id}/confirm-completion", headers=actor.headers)
+            assert res.status_code == 200, res.text
 
     def job_in_progress(self, skill_id: str | None = None):
         skill_id = skill_id or self.skill()
         customer, artisan = self.user("CUSTOMER"), self.artisan(skill_id)
         job_id = self.job(customer, artisan, self.request(customer, skill_id))
-        for action in ("accept", "start"):
-            assert self.client.post(f"/jobs/{job_id}/{action}", headers=artisan.headers).status_code == 200
+        self.work_started(customer, artisan, job_id)
         return customer, artisan, job_id
 
     def completed_job(self, skill_id: str | None = None):
         customer, artisan, job_id = self.job_in_progress(skill_id)
-        for actor in (customer, artisan):
-            assert self.client.post(f"/jobs/{job_id}/confirm-completion", headers=actor.headers).status_code == 200
+        self.complete(customer, artisan, job_id)
         return customer, artisan, job_id

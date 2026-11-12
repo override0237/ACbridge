@@ -5,6 +5,10 @@ carpenters, mechanics, tailors, masons, hairdressers...) in Cameroon. Artisans p
 through **other people** (community endorsements + an authorised verifier + confirmed completed jobs),
 and customers can trust what they see because **reviews only exist for jobs both sides confirmed**.
 
+> ⚠️ **Payments are SIMULATED too.** The payment flow (commission, assignment fee, escrow, payouts) is fully
+> implemented behind a provider interface, but the only provider is a simulator: **no real money moves**.
+> Going live needs MTN MoMo / Orange Money merchant accounts and a provider class (see §6b).
+>
 > ⚠️ **Verification is SIMULATED in this prototype.** No real-world identity check or practical skill
 > assessment takes place. Every verification API response says so (`simulated: true` + a notice) and the
 > seed data is labelled fake. Do not present it as real verification.
@@ -30,7 +34,7 @@ ACbridge/
     │   ├── services/          # business rules: verification, matching, reputation, job (state machine)
     │   └── security/          # authentication (Argon2id, JWT), permissions (RBAC), rate_limit
     ├── scripts/demo.py        # runs the whole John & Mary journey against a live API
-    ├── tests/                 # pytest suite (56 tests)
+    ├── tests/                 # pytest suite (102 tests)
     ├── requirements.txt  .env.example  docker-compose.yml  pytest.ini
 ```
 
@@ -40,6 +44,46 @@ and a handful of extra columns the rules need: `skills.safety_critical`, `artisa
 (price matching), `artisan_profiles.is_suspended`, `verification_checks.skill_id` (verification is
 per-skill) and `verification_checks.evidence_file_path` (private uploads). `jobs` are created by the
 customer choosing an artisan (`POST /jobs`) because `jobs.status` starts at `REQUESTED`.
+
+## Using this with your existing frontend
+
+Recommended layout: **one folder, two apps**, so they travel together in one git repo.
+
+```
+ACbridge/
+├── frontend/     <- your existing frontend (move/copy it here)
+└── backend/      <- this repo's backend
+```
+
+**Get the backend onto your computer** (pick one):
+
+* *Already have the repo cloned:* `git fetch origin && git checkout feature/backend-mvp` (or `git pull`).
+* *Starting from your frontend folder:* put the frontend in `frontend/`, `git init` / clone ACbridge around it,
+  then `git checkout feature/backend-mvp` and keep both folders committed together.
+* *No git:* download the zip from GitHub (**Code → Download ZIP**, with the branch `feature/backend-mvp`
+  selected) and copy its `backend/` folder next to your `frontend/` folder.
+
+**Keeping them in sync**
+
+1. **Base URL.** The API runs at `http://localhost:8000`. Point the frontend at it with an env variable,
+   e.g. Vite `VITE_API_URL=http://localhost:8000` / Next.js `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+2. **CORS.** The browser blocks calls to another port unless the backend allows the frontend's origin.
+   Defaults already allow `localhost`/`127.0.0.1` on ports **5173** (Vite) and **3000** (CRA/Next).
+   Any other port or domain: set `CORS_ORIGINS` in `backend/.env` (exact scheme+host+port) and restart.
+3. **Auth.** `POST /auth/login` → `access_token`. Send `Authorization: Bearer <token>` on every other call.
+   Store the token in memory/`sessionStorage`; on `401` send the user back to login.
+4. **The contract.** `backend/openapi.json` lists every endpoint, request body and response shape.
+   Use it to check the frontend's calls or generate a typed client
+   (e.g. `npx openapi-typescript backend/openapi.json -o frontend/src/api-types.ts`).
+   A test fails when the API changes without regenerating it:
+   `cd backend && python -m scripts.export_openapi`.
+5. **Payment flow & breaking changes.** `POST /jobs` takes `proposed_price` (was `agreed_price`). For a normal job, `accept` now starts a probation (`probation_active`, `probation_ends_at` on the job; show a countdown) and returns **no** `payment_due`; after it ends the artisan calls `confirm-terms` to get the `payment_due`. The customer pays via `POST /jobs/{id}/pay` (blocked during probation). Use `can_cancel_freely` to decide whether to show a Cancel button; a confirmed job offers "Report a serious problem" (hardship claim) instead. Match results include `contact` (WhatsApp). See §6b and `openapi.json`.
+6. **Errors.** Failures return `{"detail": "..."}`; validation errors (`422`) return `detail` as a list.
+   Show the string to the user. IDs are UUID strings; money is integer FCFA; dates are ISO-8601 UTC.
+7. **Run both:** terminal 1 `cd backend && uvicorn app.main:app --reload`; terminal 2 `cd frontend && npm run dev`.
+
+> If your frontend already calls endpoints with different names or fields than this API, share its
+> folder (or the list of calls it makes) and the two sides can be aligned deliberately.
 
 ## 1. Architecture
 
@@ -121,7 +165,7 @@ pytest                                   # in-memory SQLite, no setup, ~35 s
 TEST_DATABASE_URL=postgresql+psycopg://acbridge:acbridge@localhost:5432/acbridge_test pytest   # real PostgreSQL
 ```
 
-Both modes pass (**56 on PostgreSQL; SQLite runs 55 and skips the concurrency test**, because
+Both modes pass (**102 on PostgreSQL; SQLite runs 101 and skips the concurrency test**, because
 row locks need PostgreSQL). The tests cover every rule in the brief: auth, self-endorsement,
 unauthorised verification, the approval workflow, eligibility/ranking maths, job state machine,
 duplicate/unrelated confirmations, review rules, Bayesian reputation, DB-level constraints
@@ -171,9 +215,11 @@ Audit trail: `JOB_REQUESTED → JOB_ACCEPTED → JOB_STARTED → COMPLETION_CONF
 | Artisans | `POST /artisans`, `GET/PATCH /artisans/{id}`, `POST /artisans/{id}/skills`, `POST /artisans/{id}/endorsements`, `GET /artisans/{id}/reputation` |
 | Verification | `POST/GET /verifications`, `GET /verifications/{id}`, `POST /verifications/{id}/decision`, `POST/GET /verifications/{id}/evidence` |
 | Requests / matching | `POST /service-requests`, `GET /service-requests/{id}`, `GET /matches/{request_id}` |
-| Jobs | `POST /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/accept`, `/start`, `/confirm-completion`, `/cancel`, `/dispute` |
+| Jobs | `POST /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/accept`, `/confirm-terms`, `/pay`, `/quote`, `/quote/respond`, `/start`, `/confirm-completion`, `/cancel`, `/dispute` |
+| Hardship claims | `POST /jobs/{id}/hardship-claims`, `POST/GET /hardship-claims/{id}/document`, `GET /hardship-claims/{id}`, admin: `GET /admin/hardship-claims`, `POST /admin/hardship-claims/{id}/decision` |
+| Payments | `GET /pricing`, `GET /jobs/{id}/payments`, `GET /payments/{id}`, `POST /payments/{id}/simulate-approval`, `/simulate-failure` (simulated mode only) |
 | Reviews | `POST /jobs/{id}/reviews`, `GET /reviews/mine` |
-| Admin | `POST /admin/users/{id}/role`, `/admin/artisans/{id}/suspend`, `/unsuspend`, `/admin/jobs/{id}/resolve-dispute` |
+| Admin | `POST /admin/users/{id}/role`, `/admin/artisans/{id}/suspend`, `/unsuspend`, `/admin/jobs/{id}/resolve-dispute`, `/admin/jobs/{id}/skip-probation` (simulation only) |
 
 There is **no endpoint that sets a job status directly**; each action is one validated transition.
 
@@ -192,6 +238,62 @@ There is **no endpoint that sets a job status directly**; each action is one val
 * **Job state machine** (`job_service.ALLOWED_TRANSITIONS`): `REQUESTED → ACCEPTED → IN_PROGRESS → PENDING_CONFIRMATION → COMPLETED`, with `DISPUTED`/`CANCELLED`. Every transition locks the job row (`SELECT … FOR UPDATE`), writes a `job_events` row and commits in **one transaction**. Repeated confirmations are idempotent (safe on flaky mobile networks). A concurrency test fires six simultaneous confirmations at PostgreSQL and checks one `JOB_COMPLETED`.
 * **Anti-fraud:** unique phones; duplicate skills/endorsements/reviews blocked by DB constraints (race-safe); reviews only from the customer of a COMPLETED job; completion needs both parties; append-only audit trail; verifiers see *hints* (`review_signals`, e.g. endorsers who registered the same day) for **human** judgement — nothing is auto-flagged as fraud; rate limits on register/login/upload; uploads checked by extension *and* file header, size-capped, stored under server-generated names, served only to the owner/verifiers/admins.
 * **Privacy:** password hashes (Argon2id), evidence text/files and phone numbers never appear on public profiles. Phone numbers are exchanged only between the two parties of an accepted job.
+
+## 6b. WhatsApp contact and platform payments
+
+### WhatsApp at the matching stage
+Every match in `GET /matches/{request_id}` carries a `contact` object:
+`{"channel": "WHATSAPP", "icon": "whatsapp", "label": "Chat on WhatsApp", "link": "https://wa.me/237…?text=…", "tip": "…"}`.
+The frontend shows the WhatsApp icon and opens `link` (WhatsApp opens on the customer's phone with a prefilled
+message naming the trade, area, budget and request reference, so the artisan knows what it is about).
+No WhatsApp Business API is needed.
+
+* **Opt-in:** an artisan only gets a `contact` if they set `whatsapp_number` (on `POST /artisans` or `PATCH /artisans/{id}`). Otherwise `contact` is `null` and the UI hides the icon.
+* **Privacy:** the number appears only in the match results of the customer who made the request (never on public profiles; the public profile shows just `whatsapp_available`). The customer's number is not revealed to the artisan until they choose to start the chat. After a job is accepted, both parties get `counterpart_whatsapp_link` on the job.
+* The `tip` reminds people to book and pay inside ACbridge: only paid, confirmed jobs earn reviews and escrow protection.
+
+### Payments through the platform
+Fees are paid by the **artisan**. `GET /pricing` publishes the policy (probation length, fees, refund rule) so
+artisans see it first. Defaults (env-configurable): **5%** commission, minimum **300 FCFA**, flat inspection fee
+**1000 FCFA**, **24 h** probation (`PROBATION_HOURS`).
+
+**Cooling-off ("probation").** When the price is agreed, a 24-hour window starts. During it **either side can
+withdraw for free** (`POST /jobs/{id}/cancel`), and **no money can be paid**: the artisan's commission and the
+customer's escrow are both locked until it ends. Afterwards the artisan's final confirmation and the customer's
+payment are the commitment. Repeating `accept` never restarts the clock.
+
+| | Normal request (price known) | Request flagged `needs_inspection` |
+|---|---|---|
+| Customer | `POST /jobs` with `proposed_price` | `POST /jobs` **without** a price |
+| Artisan agrees | `POST /jobs/{id}/accept` → price agreed, **probation starts**, nothing charged | `POST /jobs/{id}/accept` → flat **ASSIGNMENT_FEE** due now (no probation yet) |
+| After probation | artisan `POST /jobs/{id}/confirm-terms` → pays **COMMISSION** (% of price) → job `ACCEPTED` | n/a (job is already `ACCEPTED` once the fee is paid) |
+| Price | the proposed amount | artisan `POST /jobs/{id}/quote`; customer `POST /jobs/{id}/quote/respond` (approve → **probation starts**; reject → artisan re-quotes) |
+
+For both: after probation the customer pays the agreed price into **escrow** (`POST /jobs/{id}/pay`); work cannot
+start until it is held; when **both** sides confirm completion the escrow is **released** to the artisan (the full
+amount, because the commission was already paid) and `PAYOUT_RELEASED` is audited.
+
+**Cancelling and refunds.** Normal cancellation works only before commitment: while the artisan's fee is unpaid,
+or during probation (and on an inspection job before a price is agreed). **A confirmed job cannot be cancelled by
+either party.** Platform fees are **not** refunded for ordinary cancellations, including a customer pulling out of an
+inspection job after the artisan paid the assignment fee. The only refund route is a **hardship claim**:
+
+1. A party to the job files `POST /jobs/{id}/hardship-claims` (`kind`: `DEATH` or `ACCIDENT_OR_SERIOUS_ILLNESS`, and who it affected).
+2. They upload the proof, a **death certificate** or **medical records** (JPG/PNG/PDF), with `POST /hardship-claims/{id}/document`. It is private: only the claimant and admins can read it.
+3. An administrator reviews it (`GET /admin/hardship-claims`, `POST /admin/hardship-claims/{id}/decision`). **Approval without a document is impossible** (API rule and a database constraint).
+4. On approval the job is cancelled and **fees and escrow are both refunded**, audited as `FEE_REFUNDED` / `ESCROW_REFUNDED`. On rejection nothing changes.
+
+An ordinary **dispute** (`POST /jobs/{id}/dispute`) can end with an admin cancelling the job, which refunds only the
+customer's escrow, never platform fees.
+
+Safeguards: integer FCFA only; a partial unique index allows only **one non-failed payment per type per job**;
+`accept`/`confirm-terms`/`pay` are idempotent; settling a payment twice is harmless; the database refuses a
+started/completed job with no agreed price and one open hardship claim per job; every step is a `payments`/`job_events` row.
+
+**Simulated mode:** the payer "approves the mobile-money prompt" with `POST /payments/{id}/simulate-approval`
+(or `/simulate-failure`), and `POST /admin/jobs/{id}/skip-probation` lets a demo skip the 24 hours. These routes are
+for the simulator only; the app **refuses to start in production with the simulated provider**, where a signed provider
+webhook would call `job_service.settle_payment` instead.
 
 ## 7. Engineering theory — what is implemented vs. only theoretical
 
@@ -217,4 +319,31 @@ There is **no endpoint that sets a job status directly**; each action is one val
 * JWTs are not revocable before expiry (60 min); no refresh tokens, password reset or SMS/OTP phone verification yet.
 * Evidence files live on local disk; use object storage with malware scanning in production.
 * No Alembic migrations yet; money is integer FCFA; currency/payments/commission (the revenue model — e.g. a small customer-paid booking fee) are not built.
+* Payments are simulated; real MTN MoMo / Orange Money integration, signed webhooks, payout failures and reconciliation are future work. The artisan pays before they earn, and fees are refundable only through a proven hardship claim.
+* Hardship proof is checked by a **human admin**; the system stores the document but cannot verify a certificate's authenticity. Consider letting a claim also be reported by a relative or the hospital, and a second-admin review for large amounts.
+* The inspection assignment fee is paid before any price or probation exists, so a customer who withdraws after assignment costs the artisan that fee (by your refund rule). Watch for abuse and consider flagging repeat cancellers for human review.
+* A job that is confirmed but where one party simply disappears can only be ended through a dispute or hardship claim; there is no automatic timeout yet.
+* Price negotiation is one-directional for normal jobs (the customer proposes, the artisan accepts or declines); counter-offers are not built.
+* WhatsApp links open a chat only; messages are not stored by ACbridge, so chat content cannot be used as evidence in disputes.
 * Not yet done for the stated users: USSD/WhatsApp/voice interfaces, local-language strings, completion codes by SMS, offline-tolerant client.
+
+## Job chat ("connect flexibly") and bargaining
+
+The customer and artisan of a job can talk in the app and bargain; the final price is read from the chat.
+
+| Endpoint | Who | What |
+|---|---|---|
+| `POST /jobs/{id}/messages` `{ "body": "..." }` | customer or artisan of the job | send a message (1-500 chars, rate limited) |
+| `GET /jobs/{id}/messages` | the two parties, admins | the conversation, oldest first |
+
+- **The price comes from the customer's message.** If a customer message **ends with an amount and a currency** (`9000 FCFA`,
+  `9 000 XAF`, `9.000 fcfa`, `1 250 000 CFA`), that amount becomes the job's `proposed_price` (`proposed_by = CUSTOMER`) and a
+  `PRICE_PROPOSED_IN_CHAT` job event is written. The response says what happened in `price_status`
+  (`APPLIED`, `NONE`, `OUT_OF_RANGE`, `LOCKED`, `NOT_APPLICABLE`, `NOT_CUSTOMER`) and shows `commission_if_agreed` and
+  `artisan_receives_if_agreed` using the platform commission.
+- **Nothing is agreed by the chat alone.** The artisan's `POST /jobs/{id}/accept` is still the agreement (price becomes
+  `agreed_price`, cooling-off starts). After that the price is `LOCKED`.
+- Only the customer can set a price; an amount typed by the artisan is just conversation. Amounts must be 500 to 5,000,000 FCFA.
+  Inspection jobs (`INSPECTION_REQUIRED`) take their price from the artisan's quote, so the chat does not set it.
+- Phone numbers (9+ digits or `+CC...`) are replaced by `[number hidden]` so the deal stays on the platform.
+- The chat closes when the job is `COMPLETED` or `CANCELLED`. Messages are append-only (database triggers refuse UPDATE/DELETE).

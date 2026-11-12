@@ -40,7 +40,7 @@ def build_artisan_out(db: Session, artisan: ArtisanProfile) -> ArtisanOut:
     return ArtisanOut(
         artisan_id=artisan.artisan_id, full_name=artisan.full_name, location=artisan.location,
         description=artisan.description, availability_status=artisan.availability_status,
-        is_suspended=artisan.is_suspended,
+        whatsapp_available=bool(artisan.whatsapp_number), is_suspended=artisan.is_suspended,
         identity_verified=verification_service.is_identity_verified(db, artisan.artisan_id),
         skills=skills, endorsement_count=verification_service.count_endorsements(db, artisan.artisan_id),
         reputation=reputation_out(reputation_service.get_reputation(db, artisan.artisan_id)),

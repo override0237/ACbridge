@@ -76,10 +76,8 @@ def test_reputation_endpoint_uses_only_completed_job_reviews(world):
     for rating in (5, 5, 4):
         customer = world.user("CUSTOMER")
         job_id = world.job(customer, john, world.request(customer, skill_id))
-        for action in ("accept", "start"):
-            world.client.post(f"/jobs/{job_id}/{action}", headers=john.headers)
-        for actor in (customer, john):
-            world.client.post(f"/jobs/{job_id}/confirm-completion", headers=actor.headers)
+        world.work_started(customer, john, job_id)
+        world.complete(customer, john, job_id)
         assert _review(world, customer, job_id, rating).status_code == 201
     # an unfinished job's review attempt does not count
     pending_customer = world.user("CUSTOMER")

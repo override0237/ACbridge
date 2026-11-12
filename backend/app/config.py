@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60
 
+    # Browser origins allowed to call the API (your frontend's dev/prod URLs), comma-separated.
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"
+
     # Service area: the platform only matches within these towns (lower-case, comma-separated).
     supported_towns: str = "buea,limbe"
 
@@ -32,6 +35,19 @@ class Settings(BaseSettings):
     reputation_min_evidence: int = 10
     reputation_platform_average: float = 4.0
 
+    # Platform revenue. Fixed-price jobs: the artisan pays COMMISSION_RATE_BPS basis points (500 = 5%) of the agreed
+    # price, never less than COMMISSION_MIN. Inspection jobs: the artisan pays one flat INSPECTION_ASSIGNMENT_FEE.
+    commission_rate_bps: int = 500
+    commission_min: int = 300
+    inspection_assignment_fee: int = 1000
+
+    # Cooling-off ("probation") after the price is agreed: either side may walk away for free, and no fee or
+    # escrow can be paid until it ends. 0 disables it (used by the automated tests).
+    probation_hours: int = 24
+
+    # Only "simulated" exists: no real money moves. Real MTN MoMo / Orange Money needs provider accounts.
+    payment_provider: str = "simulated"
+
     # HONESTY FLAG: no real-world identity/skill assessment happens in this MVP.
     verification_mode: str = "SIMULATED"
 
@@ -39,10 +55,16 @@ class Settings(BaseSettings):
     def supported_town_set(self) -> frozenset[str]:
         return frozenset(t.strip().lower() for t in self.supported_towns.split(",") if t.strip())
 
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
     @model_validator(mode="after")
     def _refuse_insecure_secret_in_production(self) -> "Settings":
         if self.environment.lower() == "production" and self.jwt_secret == _INSECURE_DEFAULT_SECRET:
             raise ValueError("JWT_SECRET must be set to a strong random value in production")
+        if self.environment.lower() == "production" and self.payment_provider == "simulated":
+            raise ValueError("The simulated payment provider moves no real money and cannot run in production")
         return self
 
 

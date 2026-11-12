@@ -1,13 +1,15 @@
 """ACbridge API entry point. Run with:  uvicorn app.main:app --reload"""
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.config import get_settings
 from app.errors import DomainError
-from app.routers import admin, artisans, auth, jobs, matching, requests, reviews, skills, verification
+from app.routers import (
+    admin, artisans, auth, chat, hardship, jobs, matching, payments, requests, reviews, skills, verification,
+)
 
 
 @asynccontextmanager
@@ -26,11 +28,11 @@ app = FastAPI(
 )
 
 
-# The demo front end (frontend/acbridge.html) may be opened from a file or another port, so allow browser calls.
-# Auth uses a bearer header, not cookies, so a wildcard origin is safe here. Restrict CORS_ORIGINS in production.
+# Lets the browser-based frontend (a different origin/port) call this API. Auth uses Bearer tokens in a
+# header, not cookies, so credentials are not enabled. Set CORS_ORIGINS in .env for your real frontend URL.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",")],
+    allow_origins=get_settings().cors_origin_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -46,5 +48,5 @@ def health() -> dict:
     return {"status": "ok", "app": "ACbridge"}
 
 
-for module in (auth, skills, artisans, verification, requests, matching, jobs, reviews, admin):
+for module in (auth, skills, artisans, verification, requests, matching, jobs, chat, payments, hardship, reviews, admin):
     app.include_router(module.router)

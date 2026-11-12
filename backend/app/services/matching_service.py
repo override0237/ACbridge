@@ -144,7 +144,9 @@ def score_candidate(candidate: Candidate, request: ServiceRequest, reputation: R
         "location": location_score(request.location, candidate.artisan.location),
         "availability": availability_score(candidate.artisan.availability_status),
         "work_history": work_history_score(reputation.reputation_score, reputation.completed_jobs),
-        "price": price_score(candidate.artisan_skill.typical_price, request.budget),
+        # No price exists yet for jobs that need inspection, so price cannot favour or penalise anyone.
+        "price": NEUTRAL_SCORE if request.needs_inspection
+        else price_score(candidate.artisan_skill.typical_price, request.budget),
     }
     score = compute_match_score(breakdown)
     # Deterministic tie-break: higher score, then more verified reviews, then stable id order.
