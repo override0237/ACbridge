@@ -12,20 +12,25 @@
  */
 import type { Artisan, Job, ServiceRequest } from '../domain/types';
 import { NEIGHBOURHOOD } from '../config';
+import { BACKEND_SKILL, isCatalogueTrade } from '../domain/trades';
 import { api, login } from './client';
 
 const VERIFIER_PHONE = '+237670000002';
 const TOWN = 'Buea'; // backend supports buea,limbe; "Neighbourhood A" is a placeholder inside Buea
 const LOCATION = `${NEIGHBOURHOOD}, ${TOWN}`;
 
-let plumbingId: string | null = null;
-async function plumbing(): Promise<string> {
-  if (plumbingId) return plumbingId;
+const skillIds = new Map<string, string>();
+/** Backend skill id for a trade. Free-text trades have no backend skill (only admins can add skills). */
+async function skillFor(trade: string): Promise<string> {
+  if (!isCatalogueTrade(trade)) throw new Error(`"${trade}" is not in the backend skill catalogue, so it stays local`);
+  const name = BACKEND_SKILL[trade];
+  const cached = skillIds.get(name);
+  if (cached) return cached;
   const skills = await api.skills();
-  const s = skills.find((x) => x.skill_name.toLowerCase() === 'plumbing');
-  if (!s) throw new Error('Plumbing skill not found on the backend (run python -m app.seed)');
-  plumbingId = s.skill_id;
-  return plumbingId;
+  const s = skills.find((x) => x.skill_name.toLowerCase() === name.toLowerCase());
+  if (!s) throw new Error(`Skill "${name}" not found on the backend (run python -m app.seed)`);
+  skillIds.set(name, s.skill_id);
+  return s.skill_id;
 }
 
 /** Register the new artisan on the backend. Returns the backend artisan_id. */
@@ -33,21 +38,21 @@ export async function registerArtisan(a: Artisan): Promise<string> {
   await api.register(a.phone, 'ARTISAN').catch(() => undefined); // already registered is fine
   const t = await login(a.phone);
   const profile = await api.createProfile(t, { full_name: a.name, location: LOCATION, description: a.description || undefined });
-  await api.addSkill(t, profile.artisan_id, await plumbing(), Math.round((a.priceMin + a.priceMax) / 2));
+  await api.addSkill(t, profile.artisan_id, await skillFor(a.trade), Math.round((a.priceMin + a.priceMax) / 2));
   return profile.artisan_id;
 }
 
 export async function vouch(artisan: Artisan, voucher: Artisan): Promise<void> {
   if (!artisan.remoteId) return;
   const t = await login(voucher.phone);
-  await api.endorse(t, artisan.remoteId, `${voucher.name} worked with ${artisan.name} on plumbing jobs in ${NEIGHBOURHOOD}.`);
+  await api.endorse(t, artisan.remoteId, `${voucher.name} worked with ${artisan.name} on ${artisan.trade} jobs in ${NEIGHBOURHOOD}.`);
 }
 
 /** After 2 vouches the artisan asks for skill verification and the (simulated) verifier approves. */
 export async function verifyAfterVouches(artisan: Artisan): Promise<void> {
   if (!artisan.remoteId) return;
   const t = await login(artisan.phone);
-  const check = await api.submitCheck(t, await plumbing(), `Plumber in ${NEIGHBOURHOOD}, vouched by two verified plumbers.`);
+  const check = await api.submitCheck(t, await skillFor(artisan.trade), `Artisan in ${NEIGHBOURHOOD}, vouched by two verified artisans.`);
   const v = await login(VERIFIER_PHONE);
   await api.decide(v, check.check_id, 'UNDER_REVIEW');
   await api.decide(v, check.check_id, 'APPROVED', 'SIMULATED: demo approval after 2 vouches');
@@ -57,7 +62,7 @@ export async function verifyAfterVouches(artisan: Artisan): Promise<void> {
 export async function operatorDecision(artisan: Artisan, approve: boolean): Promise<void> {
   if (!artisan.remoteId) return;
   const t = await login(artisan.phone);
-  const check = await api.submitCheck(t, await plumbing(), 'Operator review').catch(() => null);
+  const check = await api.submitCheck(t, await skillFor(artisan.trade), 'Operator review').catch(() => null);
   if (!check) return;
   const v = await login(VERIFIER_PHONE);
   await api.decide(v, check.check_id, 'UNDER_REVIEW');
@@ -71,8 +76,8 @@ export async function createRequest(
   await api.register(req.customerPhone, 'CUSTOMER').catch(() => undefined);
   const t = await login(req.customerPhone);
   const created = await api.createRequest(t, {
-    skill_id: await plumbing(),
-    description: req.description || 'Plumbing help needed',
+    skill_id: await skillFor(req.trade),
+    description: req.description || `${req.trade} help needed`,
     location: LOCATION,
   });
   const { matches } = await api.matches(t, created.request_id);

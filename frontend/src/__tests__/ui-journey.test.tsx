@@ -28,8 +28,10 @@ describe('full UI journey in the rendered app (French default)', () => {
     await u.click(btn(/Je suis artisan/));
     await u.type(screen.getByLabelText('Votre nom'), 'Joel');
     await u.type(screen.getByLabelText('Numéro de téléphone'), '670111222');
+    await u.type(screen.getByLabelText('Votre métier'), 'Plombier');
     await u.click(btn(/S'inscrire/));
     expect(screen.getByText(/0 sur 2 garanties/)).toBeTruthy();
+    expect(smsText()).toContain('est plombier');
     expect(smsText()).toContain('+237690000015'); // Grace
     expect(smsText()).toContain('+237690000011'); // Paul
 
@@ -44,14 +46,16 @@ describe('full UI journey in the rendered app (French default)', () => {
     // 3-4. customer request and match list (max 5, includes Joel, best match first)
     await u.click(btn('Accueil'));
     await u.click(btn(/J'ai besoin d'un service/));
+    await u.type(screen.getByLabelText('Quel artisan vous faut-il ?'), 'Plombier');
     await u.click(screen.getByRole('radio', { name: /Aujourd/ }));
     await u.click(btn(/Chercher/));
     const cards = screen.getAllByRole('article');
     expect(cards.length).toBeLessThanOrEqual(5);
-    expect(cards.length).toBe(5);
+    expect(cards.length).toBe(3); // Grace, Blaise and Joel are the only verified plumbers
+    expect(cards.some((c) => /Paul|Rose|Daniel/.test(c.textContent ?? ''))).toBe(false); // electricians are not shown for a plumbing request
     expect(within(cards[0]).getByText('Meilleur choix')).toBeTruthy();
     expect(screen.queryByText('Samuel')).toBeNull(); // pending candidate never shown
-    expect(screen.getAllByText(/FCFA/).length).toBeGreaterThan(5); // ranges + fee
+    expect(screen.getAllByText(/FCFA/).length).toBeGreaterThanOrEqual(4); // 3 ranges + fee
     const joel = cards.find((c) => within(c).queryByRole('heading', { name: /Joel/ }))!;
     expect(joel).toBeTruthy();
 
@@ -122,6 +126,7 @@ describe('full UI journey in the rendered app (French default)', () => {
     await u.click(btn(/Je suis artisan/));
     await u.type(screen.getByLabelText('Votre nom'), 'Ana');
     await u.type(screen.getByLabelText('Numéro de téléphone'), '670333444');
+    await u.type(screen.getByLabelText('Votre métier'), 'Couturier');
     await u.click(btn(/S'inscrire/));
     first.unmount();
     render(<App />);
@@ -133,6 +138,31 @@ describe('full UI journey in the rendered app (French default)', () => {
     await u.click(btn(/Réinitialiser/));
     await u.click(btn(/Oui, effacer/));
     expect(screen.getByRole('heading', { name: 'Bienvenue' })).toBeTruthy();
-    expect(JSON.parse(localStorage.getItem('acbridge.demo.v1') ?? '{"artisans":[]}').artisans.length).toBeLessThanOrEqual(5);
+    expect(JSON.parse(localStorage.getItem('acbridge.demo.v1') ?? '{"artisans":[]}').artisans.length).toBeLessThanOrEqual(9);
+  });
+
+  it('lets a customer ask for any artisan: a free-text trade matches, and an unserved trade says so', async () => {
+    const u = user();
+    render(<App />);
+    await u.click(btn(/Je suis artisan/));
+    await u.type(screen.getByLabelText('Votre nom'), 'Wendy');
+    await u.type(screen.getByLabelText('Numéro de téléphone'), '670555666');
+    await u.type(screen.getByLabelText('Votre métier'), 'Soudeur');
+    await u.click(btn(/S'inscrire/));
+    await u.click(btn(/Simuler garantie 1/));
+    await u.click(btn(/Simuler garantie 2/));
+    await u.click(btn('Accueil'));
+    await u.click(btn(/J'ai besoin d'un service/));
+    await u.type(screen.getByLabelText('Quel artisan vous faut-il ?'), 'soudeur');
+    await u.click(btn(/Chercher/));
+    const cards = screen.getAllByRole('article');
+    expect(cards).toHaveLength(1);
+    expect(cards[0].textContent).toContain('Wendy');
+    await u.click(btn(/Retour/));
+    await u.clear(screen.getByLabelText('Quel artisan vous faut-il ?'));
+    await u.type(screen.getByLabelText('Quel artisan vous faut-il ?'), 'Maçon');
+    await u.click(btn(/Chercher/));
+    expect(screen.queryAllByRole('article')).toHaveLength(0);
+    expect(screen.getByText(/Aucun artisan vérifié/)).toBeTruthy();
   });
 });

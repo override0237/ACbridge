@@ -7,6 +7,7 @@ import { SEED_OPERATOR } from '../data/seed';
 import { countValidVouches, formatScore, isVerified, trustFor } from '../domain/rules';
 import type { AuditEntry } from '../domain/types';
 import type { Key } from '../i18n';
+import { tradeLabel } from '../i18n/trade';
 import { useStore } from '../store';
 
 export function Operator() {
@@ -49,7 +50,7 @@ export function Operator() {
         {pending.length === 0 && <p className="muted">{t('operator.pendingNone')}</p>}
         {pending.map((a) => (
           <div key={a.id} className="pending">
-            <p><strong>{a.name}</strong> <span className="muted small">{a.phone}</span><br />
+            <p><strong>{a.name}</strong> · {tradeLabel(t, a.trade)} <span className="muted small">{a.phone}</span><br />
               <Badge icon="⏳" text={t('operator.vouchCount', { n: Math.min(countValidVouches(a, state.vouches, state.artisans), VOUCHES_REQUIRED), total: VOUCHES_REQUIRED })} tone="warn" /></p>
             <div className="row-2">
               <Button icon="✅" label={t('operator.approve')} onClick={() => actions.operator(a.id, true)} />

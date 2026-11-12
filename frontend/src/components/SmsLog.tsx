@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Key } from '../i18n';
+import { tradeLabel } from '../i18n/trade';
 import { useStore } from '../store';
 
 const time = (iso: string): string => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -23,6 +24,7 @@ export function SmsLog() {
             // urgency params are stored as keys-by-value so they translate with the language
             const params = { ...m.params };
             if (typeof params.urgency === 'string') params.urgency = t(`urgency.${params.urgency}` as Key);
+            if (typeof params.trade === 'string') params.trade = tradeLabel(t, params.trade).toLowerCase();
             return (
               <li key={m.id} className="sms-item">
                 <div className="sms-meta"><strong>{t('sms.to')}: {m.to}</strong> <time dateTime={m.at}>{time(m.at)}</time></div>

@@ -1,7 +1,6 @@
 export const COMPLETION_FEE_FCFA = 500; // placeholder; shown to the customer only
 export const OPERATOR_PIN = '1234'; // demo PIN
 export const NEIGHBOURHOOD = 'Neighbourhood A';
-export const TRADE = 'Plumbing';
 export const CURRENCY = 'FCFA';
 export const VOUCHES_REQUIRED = 2;
 export const MAX_MATCHES = 5;

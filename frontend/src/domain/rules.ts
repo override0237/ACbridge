@@ -4,6 +4,7 @@
  * completion by job code = both-sides-confirmed completion.
  */
 import { MAX_MATCHES, VOUCHES_REQUIRED } from '../config';
+import { sameTrade } from './trades';
 import type { Artisan, Job, Rating, Vouch } from './types';
 
 export const NEUTRAL_RATING = 3.0; // used when an artisan has no rating history yet
@@ -123,12 +124,12 @@ export function trustFor(a: Artisan, vouches: Vouch[], ratings: Rating[], all: A
 // ---------------------------------------------------------------- ranking
 export interface Ranked { artisan: Artisan; trust: number; jobs: number }
 
-/** Verified only; trust desc (one decimal), then response time asc, then name; at most MAX_MATCHES. */
+/** Verified artisans of the requested trade only; trust desc (one decimal), then response time asc, then name; at most MAX_MATCHES. */
 export function rankArtisans(
-  artisans: Artisan[], vouches: Vouch[], ratings: Rating[], jobs: Job[], limit = MAX_MATCHES,
+  artisans: Artisan[], vouches: Vouch[], ratings: Rating[], jobs: Job[], trade: string, limit = MAX_MATCHES,
 ): Ranked[] {
   return artisans
-    .filter((a) => isVerified(a, vouches, artisans))
+    .filter((a) => sameTrade(a.trade, trade) && isVerified(a, vouches, artisans))
     .map((a) => ({ artisan: a, trust: trustFor(a, vouches, ratings, artisans), jobs: completedJobs(a, jobs) }))
     .sort((x, y) => {
       const t = Math.round(y.trust * 10) - Math.round(x.trust * 10);

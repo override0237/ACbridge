@@ -1,0 +1,31 @@
+# Render Blueprint: backend API + PostgreSQL. In Render: New > Blueprint > pick this repo/branch.
+# DEMO ONLY: the seed creates fake accounts that share a published password (see frontend/README.md).
+databases:
+  - name: acbridge-db
+    plan: free
+    databaseName: acbridge
+    user: acbridge
+
+services:
+  - type: web
+    name: acbridge-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.init_db && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: acbridge-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # Set to your GitHub Pages origin once known, e.g. https://override0237.github.io (no path, no trailing slash).
+      - key: CORS_ORIGINS
+        value: "*"

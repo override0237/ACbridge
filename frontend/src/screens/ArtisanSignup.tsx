@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
+import { TradeField } from '../components/TradeField';
 import type { Key } from '../i18n';
 import { useStore } from '../store';
 import { speechLocale } from '../i18n';
@@ -16,6 +17,7 @@ export function ArtisanSignup() {
   const { state, actions, t } = useStore();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [trade, setTrade] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<Key | null>(null);
   const [listening, setListening] = useState(false);
@@ -24,7 +26,7 @@ export function ArtisanSignup() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const r = actions.registerArtisan({ name, phone, description });
+    const r = actions.registerArtisan({ name, phone, trade, description });
     if (!r.ok) setError(r.error);
   };
 
@@ -51,10 +53,8 @@ export function ArtisanSignup() {
         <label>{t('signup.phone')}
           <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" autoComplete="tel" placeholder={t('signup.phoneHint')} required />
         </label>
-        <div className="row-2">
-          <label>{t('signup.trade')}<input value={t('common.trade')} readOnly /></label>
-          <label>{t('signup.neighbourhood')}<input value={t('common.neighbourhood')} readOnly /></label>
-        </div>
+        <TradeField label={t('signup.trade')} value={trade} onChange={(v) => { setTrade(v); setError(null); }} />
+        <label>{t('signup.neighbourhood')}<input value={t('common.neighbourhood')} readOnly /></label>
         <label>{t('signup.description')}
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={t('signup.descriptionHint')} />
         </label>

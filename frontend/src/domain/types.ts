@@ -6,6 +6,7 @@ export interface Artisan {
   id: string;
   name: string;
   phone: string;
+  /** Catalogue key (see domain/trades.ts) or normalised free text. */
   trade: string;
   neighbourhood: string;
   description: string;

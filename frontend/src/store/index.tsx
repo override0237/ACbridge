@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
-import { API_MODE, NEIGHBOURHOOD, TRADE } from '../config';
+import { API_MODE, NEIGHBOURHOOD } from '../config';
+import { resolveTrade } from '../domain/trades';
 import { SEED_CUSTOMER, SEED_VOUCHERS } from '../data/seed';
 import {
   checkCompletion, checkRating, checkVouch, generateJobCode, normalizePhone, type CompletionCheck, type RatingCheck,
@@ -25,9 +26,9 @@ const VOUCH_ERRORS: Record<string, Key> = {
 export interface Actions {
   setLang(l: Lang): void;
   go(screen: Screen, patch?: Partial<UiState>): void;
-  registerArtisan(v: { name: string; phone: string; description: string }): RegisterResult;
+  registerArtisan(v: { name: string; phone: string; trade: string; description: string }): RegisterResult;
   vouch(artisanId: string, seedIndex: number): VouchResult;
-  submitRequest(v: { urgency: Urgency; description: string }): void;
+  submitRequest(v: { trade: string; urgency: Urgency; description: string }): { ok: true } | { ok: false; error: Key };
   choose(artisanId: string): void;
   answer(jobId: string, accept: boolean): void;
   complete(jobId: string, entered: string): CompletionCheck;
@@ -68,15 +69,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setLang: (lang) => dispatch({ type: 'setLang', lang }),
       go: (screen, patch) => dispatch({ type: 'nav', screen, patch }),
 
-      registerArtisan({ name, phone, description }) {
+      registerArtisan({ name, phone, trade, description }) {
         const s = ref.current;
         const cleanName = name.trim();
         if (cleanName.length < 2) return { ok: false, error: 'signup.errName' };
+        const tradeKey = resolveTrade(trade);
+        if (!tradeKey) return { ok: false, error: 'signup.errTrade' };
         const normalized = normalizePhone(phone);
         if (!normalized) return { ok: false, error: 'signup.errPhone' };
         if (s.artisans.some((a) => a.phone === normalized)) return { ok: false, error: 'signup.errTaken' };
         const artisan: Artisan = {
-          id: uid('artisan'), name: cleanName, phone: normalized, trade: TRADE, neighbourhood: NEIGHBOURHOOD,
+          id: uid('artisan'), name: cleanName, phone: normalized, trade: tradeKey, neighbourhood: NEIGHBOURHOOD,
           description: description.trim(), baseRating: 0, baseJobs: 0, avgResponseMin: 20,
           priceMin: 3000, priceMax: 8000, seedVerified: false, isSeed: false,
         };
@@ -106,9 +109,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { ok: true };
       },
 
-      submitRequest({ urgency, description }) {
+      submitRequest({ trade, urgency, description }) {
+        const tradeKey = resolveTrade(trade);
+        if (!tradeKey) return { ok: false, error: 'request.errTrade' };
         const request = {
-          id: uid('req'), customerPhone: SEED_CUSTOMER.phone, customerName: SEED_CUSTOMER.name, trade: TRADE,
+          id: uid('req'), customerPhone: SEED_CUSTOMER.phone, customerName: SEED_CUSTOMER.name, trade: tradeKey,
           neighbourhood: NEIGHBOURHOOD, urgency, description: description.trim(), at: now(),
         };
         dispatch({ type: 'request', request });
@@ -117,6 +122,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'patchRequest', id: request.id, patch: { remoteId: requestId } });
           for (const [localId, remoteId] of Object.entries(links)) dispatch({ type: 'patchArtisan', id: localId, patch: { remoteId } });
         });
+        return { ok: true };
       },
 
       choose(artisanId) {

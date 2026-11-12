@@ -2,6 +2,7 @@ import { Badge, Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import type { Key } from '../i18n';
+import { tradeLabel } from '../i18n/trade';
 import { useStore } from '../store';
 
 export function ArtisanInbox() {
@@ -22,7 +23,7 @@ export function ArtisanInbox() {
         return (
           <Card key={j.id} as="article">
             <h2>{t('inbox.from', { customer: req?.customerName ?? '' })}</h2>
-            <p>⏱️ {req ? t(`urgency.${req.urgency}` as Key) : ''}</p>
+            <p>🛠️ {req ? tradeLabel(t, req.trade) : ''} · ⏱️ {req ? t(`urgency.${req.urgency}` as Key) : ''}</p>
             {req?.description && <p className="quote">“{req.description}”</p>}
             {j.status === 'REQUESTED' && (
               <div className="row-2">

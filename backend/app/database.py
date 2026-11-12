@@ -9,6 +9,10 @@ from app.config import get_settings
 
 
 def make_engine(url: str) -> Engine:
+    # Hosts such as Render hand out postgres:// or postgresql:// URLs; this project uses the psycopg 3 driver.
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            url = "postgresql+psycopg://" + url[len(prefix):]
     kwargs: dict = {"pool_pre_ping": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}

@@ -10,23 +10,23 @@ describe('mandatory journey (reducer + rules)', () => {
   it('runs register, 2 vouches, request, choose, accept, wrong code, right code, rate once', () => {
     let s: State = initialState();
     const art: Artisan = {
-      id: 'new', name: 'Joel', phone: '+237670111222', trade: 'Plumbing', neighbourhood: 'Neighbourhood A', description: '',
+      id: 'new', name: 'Joel', phone: '+237670111222', trade: 'plumbing', neighbourhood: 'Neighbourhood A', description: '',
       baseRating: 0, baseJobs: 0, avgResponseMin: 20, priceMin: 3000, priceMax: 8000, seedVerified: false, isSeed: false,
     };
     s = reducer(s, { type: 'register', artisan: art, at, ids: e(4) });
     expect(s.sms.filter((m) => m.key === 'sms.vouchRequest')).toHaveLength(2);
 
     s = reducer(s, { type: 'vouch', artisanId: 'new', voucherId: 'seed-1', workedTogether: true, vouchId: 'v1', at, ids: e(4) });
-    expect(rankArtisans(s.artisans, s.vouches, s.ratings, s.jobs).some((r) => r.artisan.id === 'new')).toBe(false);
+    expect(rankArtisans(s.artisans, s.vouches, s.ratings, s.jobs, 'plumbing').some((r) => r.artisan.id === 'new')).toBe(false);
     s = reducer(s, { type: 'vouch', artisanId: 'new', voucherId: 'seed-2', workedTogether: true, vouchId: 'v2', at, ids: e(4) });
-    const ranked = rankArtisans(s.artisans, s.vouches, s.ratings, s.jobs);
-    expect(ranked).toHaveLength(5);
+    const ranked = rankArtisans(s.artisans, s.vouches, s.ratings, s.jobs, 'plumbing');
+    expect(ranked.map((r) => r.artisan.name)).toEqual(['Grace', 'Blaise', 'Joel']);
     expect(ranked.some((r) => r.artisan.id === 'new')).toBe(true);
     expect(s.sms.some((m) => m.key === 'sms.verified')).toBe(true);
 
     s = reducer(s, {
       type: 'request',
-      request: { id: 'rq', customerPhone: '+237690000030', customerName: 'Mary', trade: 'Plumbing', neighbourhood: 'Neighbourhood A', urgency: 'today', description: '', at },
+      request: { id: 'rq', customerPhone: '+237690000030', customerName: 'Mary', trade: 'plumbing', neighbourhood: 'Neighbourhood A', urgency: 'today', description: '', at },
     });
     s = reducer(s, { type: 'choose', jobId: 'job', requestId: 'rq', artisanId: 'new', at, ids: e(1) });
     const code = generateJobCode();

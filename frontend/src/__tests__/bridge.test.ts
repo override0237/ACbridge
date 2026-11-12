@@ -46,7 +46,7 @@ describe('API bridge calls only routes the backend defines', () => {
     await bridge.vouch(linked, SEED_ARTISANS[0]);
     await bridge.vouch(linked, SEED_ARTISANS[1]);
     await bridge.verifyAfterVouches(linked);
-    const req: ServiceRequest = { id: 'r', customerPhone: '+237690000030', customerName: 'Mary', trade: 'Plumbing', neighbourhood: 'Neighbourhood A', urgency: 'today', description: '', at: '' };
+    const req: ServiceRequest = { id: 'r', customerPhone: '+237690000030', customerName: 'Mary', trade: 'plumbing', neighbourhood: 'Neighbourhood A', urgency: 'today', description: '', at: '' };
     const created = await bridge.createRequest(req, [...SEED_ARTISANS]);
     expect(created.links['seed-1']).toBe('eeeeeeee-5555'); // Grace linked by name
     const jobId = await bridge.chooseArtisan({ ...req, remoteId: created.requestId }, { ...grace, remoteId: 'eeeeeeee-5555' });

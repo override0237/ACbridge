@@ -2,6 +2,7 @@ import { Badge, Card } from '../components/Card';
 import { Screen } from '../components/Screen';
 import { StarRating } from '../components/StarRating';
 import { completedJobs, countValidVouches, formatScore, isVerified, priceRangeLabel, trustFor } from '../domain/rules';
+import { tradeLabel } from '../i18n/trade';
 import { useStore } from '../store';
 
 export function ArtisanProfile() {
@@ -20,7 +21,7 @@ export function ArtisanProfile() {
       <Card>
         <p>{verified ? <Badge icon="✅" text={t('common.verified')} tone="good" /> : <Badge icon="⏳" text={t('common.notVerified')} tone="warn" />}</p>
         <dl className="facts">
-          <dt>{t('profile.trade')}</dt><dd>{t('common.trade')}</dd>
+          <dt>{t('profile.trade')}</dt><dd>{tradeLabel(t, artisan.trade)}</dd>
           <dt>{t('profile.neighbourhood')}</dt><dd>{t('common.neighbourhood')}</dd>
           <dt>{t('profile.trust')}</dt><dd><StarRating value={trust} /> <strong data-testid="trust">{formatScore(trust)}</strong> / 5</dd>
           <dt>{t('profile.jobs')}</dt><dd>{completedJobs(artisan, state.jobs)}</dd>

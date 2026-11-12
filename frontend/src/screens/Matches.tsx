@@ -5,15 +5,18 @@ import { Screen } from '../components/Screen';
 import { StarRating } from '../components/StarRating';
 import { COMPLETION_FEE_FCFA } from '../config';
 import { formatScore, priceRangeLabel, rankArtisans } from '../domain/rules';
+import { tradeLabel } from '../i18n/trade';
 import { useStore } from '../store';
 
 export function Matches() {
   const { state, actions, t } = useStore();
   const [confirming, setConfirming] = useState<string | null>(null);
   // Computed synchronously from local state: well under the 1 second budget.
+  const request = state.requests.find((r) => r.id === state.ui.requestId);
+  const trade = request?.trade ?? '';
   const ranked = useMemo(
-    () => rankArtisans(state.artisans, state.vouches, state.ratings, state.jobs),
-    [state.artisans, state.vouches, state.ratings, state.jobs],
+    () => rankArtisans(state.artisans, state.vouches, state.ratings, state.jobs, trade),
+    [state.artisans, state.vouches, state.ratings, state.jobs, trade],
   );
   const currency = t('common.currency');
   const fee = `${COMPLETION_FEE_FCFA.toLocaleString('fr-FR')} ${currency}`;
@@ -21,12 +24,13 @@ export function Matches() {
 
   return (
     <Screen title={t('matches.title')} instruction={t('matches.instruction')} back="customerRequest">
+      <p><strong>{t('matches.request')}:</strong> {tradeLabel(t, trade)} · {t('common.neighbourhood')}</p>
       <p className="notice">💰 {t('matches.fee')} <strong>{fee}</strong></p>
       {ranked.length === 0 && <p className="muted">{t('matches.none')}</p>}
       {ranked.map(({ artisan, trust, jobs }, i) => (
         <Card key={artisan.id} as="article" highlight={i === 0}>
           {i === 0 && <p><Badge icon="🏆" text={t('matches.best')} tone="good" /></p>}
-          <h2>{artisan.name} <Badge icon="✅" text={t('common.verified')} tone="good" /></h2>
+          <h2>{artisan.name} <span className="muted">· {tradeLabel(t, artisan.trade)}</span> <Badge icon="✅" text={t('common.verified')} tone="good" /></h2>
           <p className="rating-line"><StarRating value={trust} /> <strong>{formatScore(trust)}</strong> <span className="muted">· {t('common.jobs', { n: jobs })}</span></p>
           <p>💵 {t('matches.price')}: <strong>{priceRangeLabel(artisan, currency, locale)}</strong></p>
           {confirming === artisan.id ? (

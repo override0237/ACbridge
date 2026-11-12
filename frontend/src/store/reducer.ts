@@ -77,7 +77,7 @@ export function reducer(s: State, a: Action): State {
       const art = a.artisan;
       const voucherSms = ['seed-1', 'seed-2'].map((vid, i) => {
         const v = byId(s.artisans, vid);
-        return v ? sms(a.ids[i], v.phone, 'sms.vouchRequest', { name: art.name, phone: art.phone }, a.at) : null;
+        return v ? sms(a.ids[i], v.phone, 'sms.vouchRequest', { name: art.name, phone: art.phone, trade: art.trade }, a.at) : null;
       }).filter((m): m is SmsMessage => m !== null);
       return {
         ...s,
@@ -123,7 +123,7 @@ export function reducer(s: State, a: Action): State {
       return {
         ...s,
         jobs: [...s.jobs, job],
-        sms: [...s.sms, sms(a.ids[0], artisan.phone, 'sms.jobRequest', { customer: req.customerName, urgency: req.urgency }, a.at)],
+        sms: [...s.sms, sms(a.ids[0], artisan.phone, 'sms.jobRequest', { customer: req.customerName, urgency: req.urgency, trade: req.trade }, a.at)],
         ui: { ...s.ui, jobId: job.id, screen: 'tracking' },
       };
     }

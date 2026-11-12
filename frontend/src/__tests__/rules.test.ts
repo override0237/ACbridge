@@ -4,11 +4,12 @@ import {
   checkCompletion, checkRating, checkVouch, countValidVouches, generateJobCode, hashCode, isVerified,
   normalizePhone, rankArtisans, trustScore,
 } from '../domain/rules';
+import { resolveTrade } from '../domain/trades';
 import type { Artisan, Job, Rating, Vouch } from '../domain/types';
 
 const seeds = (): Artisan[] => SEED_ARTISANS.map((a) => ({ ...a }));
 const newbie = (): Artisan => ({
-  id: 'n1', name: 'Newbie', phone: '+237670000999', trade: 'Plumbing', neighbourhood: 'Neighbourhood A', description: '',
+  id: 'n1', name: 'Newbie', phone: '+237670000999', trade: 'plumbing', neighbourhood: 'Neighbourhood A', description: '',
   baseRating: 0, baseJobs: 0, avgResponseMin: 20, priceMin: 3000, priceMax: 8000, seedVerified: false, isSeed: false,
 });
 const vouch = (artisanId: string, voucher: Artisan, id = voucher.id, workedTogether = true): Vouch =>
@@ -90,14 +91,26 @@ describe('trust score', () => {
 });
 
 describe('ranking', () => {
-  it('returns only verified artisans, trust desc, then response time asc, max five', () => {
+  it('returns only verified artisans of the asked trade, trust desc, then response time asc, max five', () => {
     const all = seeds();
-    const ranked = rankArtisans(all, [], [], []);
-    expect(ranked.map((r) => r.artisan.name)).toEqual(['Grace', 'Paul', 'Esther', 'Peter']); // Samuel (pending) excluded
+    expect(rankArtisans(all, [], [], [], 'plumbing').map((r) => r.artisan.name)).toEqual(['Grace', 'Blaise']);
+    // Samuel (pending electrician) is excluded; electricians ranked by trust
+    expect(rankArtisans(all, [], [], [], 'electrical').map((r) => r.artisan.name)).toEqual(['Paul', 'Esther', 'Peter']);
+    expect(rankArtisans(all, [], [], [], 'welder')).toEqual([]);
     const tie = all.map((a) => ({ ...a, baseRating: 4.5, avgResponseMin: a.id === 'seed-3' ? 1 : 10 }));
-    expect(rankArtisans(tie, [], [], [])[0].artisan.name).toBe('Esther');
-    const many = [...all, ...Array.from({ length: 4 }, (_, i) => ({ ...all[0], id: `x${i}`, name: `X${i}` }))];
-    expect(rankArtisans(many, [], [], [])).toHaveLength(5);
+    expect(rankArtisans(tie, [], [], [], 'electrical')[0].artisan.name).toBe('Esther');
+    const many = [...all, ...Array.from({ length: 6 }, (_, i) => ({ ...all[0], id: `x${i}`, name: `X${i}` }))];
+    expect(rankArtisans(many, [], [], [], 'plumbing')).toHaveLength(5);
+  });
+});
+
+describe('trades', () => {
+  it('resolves what the user types in either language, or keeps free text', () => {
+    expect(resolveTrade('Plombier')).toBe('plumbing');
+    expect(resolveTrade(' électricien ')).toBe('electrical');
+    expect(resolveTrade('Carpenter')).toBe('carpentry');
+    expect(resolveTrade('Soudeur')).toBe('soudeur');
+    expect(resolveTrade('x')).toBeNull();
   });
 });
 
