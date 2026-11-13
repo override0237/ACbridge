@@ -1,0 +1,5 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  # The mobile app is added to the workspace on a machine that can run Expo and an Android emulator:
+  - "!apps/mobile"

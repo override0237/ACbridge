@@ -1,0 +1,24 @@
+{
+  "name": "acbridge",
+  "private": true,
+  "version": "0.2.0",
+  "description": "ACbridge monorepo: web app, mobile app, shared packages. The backend lives in backend/ (Python).",
+  "packageManager": "pnpm@9.15.9",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "tokens:build": "tsx packages/tokens/src/build.ts",
+    "tokens:check": "tsx packages/tokens/src/build.ts --check",
+    "contrast": "tsx scripts/contrast-check.ts",
+    "check:hex": "tsx scripts/check-no-hex.ts",
+    "check:bundles": "tsx scripts/check-bundle-secrets.ts",
+    "check": "pnpm tokens:check && pnpm contrast && pnpm check:hex",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build",
+    "web": "pnpm --filter @acbridge/web dev",
+    "mobile": "pnpm --filter @acbridge/mobile start"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

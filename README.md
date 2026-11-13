@@ -13,6 +13,26 @@ and customers can trust what they see because **reviews only exist for jobs both
 > assessment takes place. Every verification API response says so (`simulated: true` + a notice) and the
 > seed data is labelled fake. Do not present it as real verification.
 
+## Repository layout (monorepo)
+
+```
+apps/web        React + Vite web app (the demo today; becomes the production web app)    -> apps/web/README.md
+apps/mobile     React Native (Expo) app, scaffold, not yet run on a device                -> apps/mobile/README.md
+packages/core   shared platform-neutral code: types, phone, money, i18n, zod schemas, typed API client
+packages/tokens the ONE source of colours/type/spacing; generates CSS variables and the RN theme
+packages/config shared tsconfig and prettier presets
+backend/        FastAPI backend (Python), unchanged by the front-end work
+docs/           SRS.md, CHANGES.md, CONTRACT_MAP.md, ACCESSIBILITY.md, PERFORMANCE.md
+scripts/        contrast-check, check-no-hex, check-bundle-secrets
+```
+
+Front end quick start (Node 20+; pnpm is used through `npx pnpm@9` if you do not have it):
+`pnpm install`, then `pnpm check` (tokens up to date, contrast, no hex outside tokens), `pnpm test`, `pnpm web` (dev server;
+the design-system style guide is at `/styleguide.html`). A guided tour of every web-app section is in
+`apps/web/functionalities explained/README.md`.
+
+---
+
 This repository currently contains the **backend MVP** (`backend/`). A frontend (low-data, mobile-first,
 local-language/voice friendly) will live beside it.
 

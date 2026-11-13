@@ -1,0 +1,68 @@
+/* Design-system primitives. Colours, spacing, radii, motion: ONLY tokens (var(--acb-*)). No hex values here. */
+.acb-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--acb-space-2);
+  min-height: var(--acb-target-min); min-width: var(--acb-target-min); padding: 0 var(--acb-space-5);
+  border: 2px solid transparent; border-radius: var(--acb-radius-button);
+  font-family: var(--acb-font-family); font-size: var(--acb-font-size-body); line-height: var(--acb-line-height);
+  font-weight: 600; cursor: pointer; text-decoration: none;
+  transition: background-color var(--acb-motion-fast) ease, border-color var(--acb-motion-fast) ease, transform var(--acb-motion-fast) ease;
+}
+.acb-btn:active { transform: translateY(1px); }
+.acb-btn:disabled, .acb-btn[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; transform: none; }
+.acb-btn:focus-visible, .acb-field input:focus-visible, .acb-field textarea:focus-visible {
+  outline: 3px solid var(--acb-color-accent); outline-offset: 2px;
+}
+.acb-btn-primary { background: var(--acb-color-accent); color: var(--acb-color-on-accent); }
+.acb-btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--acb-color-accent) 86%, black); }
+.acb-btn-secondary { background: transparent; color: var(--acb-color-accent-text); border-color: var(--acb-color-accent); }
+.acb-btn-secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--acb-color-accent) 10%, transparent); }
+.acb-btn-danger { background: transparent; color: var(--acb-color-danger); border-color: var(--acb-color-danger); }
+.acb-btn-ghost { background: transparent; color: var(--acb-color-accent-text); }
+.acb-btn-block { width: 100%; }
+.acb-btn-big { min-height: calc(var(--acb-target-min) + var(--acb-space-4)); font-size: var(--acb-font-size-instruction); }
+.acb-icon { flex: none; }
+
+.acb-card {
+  background: var(--acb-color-surface-raised); color: var(--acb-color-text);
+  border: 1px solid var(--acb-color-border); border-radius: var(--acb-radius-card);
+  box-shadow: var(--acb-shadow-raised); padding: var(--acb-space-5);
+  display: flex; flex-direction: column; gap: var(--acb-space-3);
+}
+.acb-card h2, .acb-card h3 { margin: 0; font-size: var(--acb-font-size-heading); line-height: 1.25; }
+
+/* A status is always an icon AND a word, never colour alone. */
+.acb-badge {
+  display: inline-flex; align-items: center; gap: var(--acb-space-1); padding: var(--acb-space-1) var(--acb-space-3);
+  border: 2px solid currentColor; border-radius: var(--acb-radius-pill); font-weight: 600; font-size: var(--acb-font-size-small);
+}
+.acb-badge-success { color: var(--acb-color-success); }
+.acb-badge-warning { color: var(--acb-color-warning); }
+.acb-badge-danger { color: var(--acb-color-danger); }
+.acb-badge-info { color: var(--acb-color-accent-text); }
+
+.acb-field { display: flex; flex-direction: column; gap: var(--acb-space-2); font-size: var(--acb-font-size-body); }
+.acb-field > span.acb-label { font-weight: 600; color: var(--acb-color-text); }
+.acb-field input, .acb-field textarea {
+  min-height: var(--acb-target-min); padding: var(--acb-space-2) var(--acb-space-3); width: 100%;
+  border: 2px solid var(--acb-color-border-strong); border-radius: var(--acb-radius-button);
+  background: var(--acb-color-surface); color: var(--acb-color-text); font: inherit;
+}
+.acb-field[data-invalid='true'] input, .acb-field[data-invalid='true'] textarea { border-color: var(--acb-color-danger); }
+.acb-hint { color: var(--acb-color-text-muted); font-size: var(--acb-font-size-small); }
+.acb-error { color: var(--acb-color-danger); font-weight: 600; display: flex; gap: var(--acb-space-2); align-items: flex-start; }
+
+.acb-skeleton {
+  display: block; border-radius: var(--acb-radius-button); background: var(--acb-color-border);
+  animation: acb-pulse calc(var(--acb-motion-slow) * 6) ease-in-out infinite;
+}
+@keyframes acb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .acb-skeleton { animation: none; } }
+
+.acb-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--acb-space-3); padding: var(--acb-space-8) var(--acb-space-4); }
+.acb-state h3 { margin: 0; font-size: var(--acb-font-size-heading); }
+.acb-state p { margin: 0; max-width: 36ch; color: var(--acb-color-text-muted); font-size: var(--acb-font-size-instruction); }
+.acb-state-icon { color: var(--acb-color-accent-text); }
+.acb-state-error .acb-state-icon { color: var(--acb-color-danger); }
+
+.acb-stack { display: flex; flex-direction: column; gap: var(--acb-space-4); }
+.acb-page { max-width: var(--acb-max-content-width); margin: 0 auto; padding: var(--acb-space-4); }

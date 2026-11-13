@@ -1,0 +1,4 @@
+{
+  "comment": "LEGACY demo files that still contain hex colours until their screens are rebuilt on @acbridge/tokens. This list may only shrink.",
+  "files": ["apps/web/src/styles.css"]
+}

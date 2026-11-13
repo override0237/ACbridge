@@ -1,0 +1,33 @@
+{
+  "name": "@acbridge/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node scripts/inline.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "db:browse": "node --no-warnings database/make-browser.mjs database/acbridge.db database/browse.html \"ACbridge backend database (simulated data)\"",
+    "db:from-browser": "node --no-warnings database/build-demo-db.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@acbridge/core": "workspace:*",
+    "@acbridge/tokens": "workspace:*",
+    "lucide-react": "^0.460.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}

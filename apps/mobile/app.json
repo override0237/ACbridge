@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "ACbridge",
+    "slug": "acbridge",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": { "package": "app.acbridge.mobile" },
+    "ios": { "bundleIdentifier": "app.acbridge.mobile" }
+  }
+}

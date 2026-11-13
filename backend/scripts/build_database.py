@@ -1,6 +1,6 @@
 """Build a browsable SQLite copy of the ACbridge backend database, filled with simulated demo data.
 
-    python scripts/build_database.py [output_folder]        (default: ../frontend/database)
+    python scripts/build_database.py [output_folder]        (default: ../apps/web/database)
 
 It creates the SAME tables as the real backend (app/models.py), seeds the catalogue and demo artisans (app/seed.py), and then
 plays several complete scenarios through the real API (in-process), so the file contains registered artisans, customers,
@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parent.parent
-OUT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else (BACKEND.parent / "frontend" / "database")
+OUT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else (BACKEND.parent / "apps" / "web" / "database")
 OUT.mkdir(parents=True, exist_ok=True)
 DB = OUT / "acbridge.db"
 for suffix in ("", "-journal", "-wal", "-shm"):

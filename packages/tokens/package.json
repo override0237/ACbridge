@@ -1,0 +1,19 @@
+{
+  "name": "@acbridge/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The ONE place colours, type, spacing, radius and motion are defined. Generates CSS custom properties (web) and a theme object (React Native).",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css": "./generated/tokens.css",
+    "./theme": "./generated/theme.ts"
+  },
+  "scripts": {
+    "build": "tsx src/build.ts",
+    "test": "vitest run"
+  },
+  "devDependencies": { "vitest": "^2.1.8", "tsx": "^4.19.2" }
+}
