@@ -138,7 +138,7 @@ def test_agreed_price_is_frozen_and_the_amount_never_comes_from_the_request(worl
     assert job["agreed_price"] == 6000
     # no endpoint changes an agreed price: a chat message cannot reopen it either
     chat = world.client.post(f"/jobs/{job_id}/messages", headers=artisan.headers, json={"body": "now 7000 FCFA"})
-    assert chat.json()["price_status"] == "LOCKED"
+    assert chat.status_code == 409                       # the job is paid, so the chat is closed and cannot reopen the price
     assert world.client.get(f"/jobs/{job_id}", headers=customer.headers).json()["agreed_price"] == 6000
 
 
@@ -341,3 +341,15 @@ def test_refund_requests_are_recorded_in_refund_payable_and_stay_balanced(world,
     assert ledger["balances"]["refund_payable"] == 6000
     assert ledger["balances"]["artisan_pending"] == 0 and ledger["balances"]["platform_revenue"] == 0
     assert _payout(world, job_id)["status"] == "FAILED"
+
+
+def test_the_chat_closes_once_the_customers_payment_has_gone_through(world, split):
+    customer, artisan, job_id, payment = _paid_job(world, price=6000, approve=False)
+    # before the payment succeeds the parties can still talk
+    assert world.client.post(f"/jobs/{job_id}/messages", headers=customer.headers, json={"body": "see you soon"}).status_code == 201
+    world.approve(payment["payment_id"], customer)                      # the app now holds the money
+    for who in (customer, artisan):
+        res = world.client.post(f"/jobs/{job_id}/messages", headers=who.headers, json={"body": "one more thing"})
+        assert res.status_code == 409 and "payment has been received" in res.json()["detail"]
+    history = world.client.get(f"/jobs/{job_id}/messages", headers=customer.headers).json()   # but the history stays readable
+    assert [m["body"] for m in history] == ["see you soon"]
