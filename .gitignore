@@ -1,6 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
+backend/uploads/
 node_modules/
 dist/
-.env
-*.log
 .DS_Store
-server/data/db.json
