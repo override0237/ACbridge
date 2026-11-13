@@ -101,11 +101,15 @@ describe('Connect flexibly: the customer bargains and the ARTISAN states the fin
     expect(sms()).toMatch(/Commission 5% = 450 FCFA/);                                  // 5% of the artisan's 9 000, booked at payment
     const code = /code de travail est (\d{6})/.exec(sms())?.[1]!;
 
-    // finish the job with the code
+    // the app now holds the money: the chat is closed for BOTH sides (no button, no way to send a message)
     await u.click(btn(/Retour/));
+    expect(screen.queryByRole('button', { name: /Échanger/ })).toBeNull();
     await u.click(btn('Accueil'));
     await u.click(btn(/Je suis artisan/));
     await u.click(btn(/Boîte travaux/));
+    expect(screen.queryByRole('button', { name: /Discuter/ })).toBeNull();
+
+    // finish the job with the code
     await u.click(btn(/Finir travail/));
     await u.type(screen.getByLabelText('Code du travail'), code);
     await u.click(lastBtn('Valider'));

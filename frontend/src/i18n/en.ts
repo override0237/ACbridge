@@ -410,6 +410,8 @@ export const en = {
   'audit.job_expired': "Offer to {artisan} expired (urgency: {urgency}): not accepted in time",
   'operator.export': "Export data",
   'operator.exportHint': "Downloads everything in this demo (accounts, requests, payments, ledger...) as a file. Turn it into a database with: node --no-warnings database/build-demo-db.mjs acbridge-demo-data.json",
+  'chat.closedPaid': "The chat is closed: the payment was received. The conversation above stays visible.",
+  'chat.sysClosed': "Payment received: the chat is now closed.",
 } as const;
 
 export type Dict = Record<keyof typeof en, string>;

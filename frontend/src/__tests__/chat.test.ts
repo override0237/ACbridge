@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkChatMessage, endsWithBareNumber, maskContacts, parseAmount } from '../domain/chat';
+import { checkChatMessage, endsWithBareNumber, isChatOpen, maskContacts, parseAmount } from '../domain/chat';
 import type { Job } from '../domain/types';
 import { generateJobCode } from '../domain/rules';
 import { initialState, reducer, type State } from '../store/reducer';
@@ -89,6 +89,32 @@ describe('the reducer turns the ARTISAN amount into the price and the commission
     s = reducer(s, { type: 'paySettle', id: 'p1', ok: true, code, at, ids: ids(4) });
     expect(s.jobs[0]).toMatchObject({ commission: 450, payout: 8550 });
     expect(s.payouts[0]).toMatchObject({ amount: 8550, commission: 450 });
+  });
+
+  it('closes the chat for good once the customer payment succeeds', () => {
+    let s = start();
+    s = reducer(s, { type: 'chat', id: 'm1', sysId: 's1', jobId: 'job', from: 'artisan', text: 'final price 9 000 FCFA', at, ids: ids(2) });
+    s = reducer(s, { type: 'answer', jobId: 'job', accept: true, at, ids: ids(3) });
+    expect(isChatOpen(s.jobs[0])).toBe(true);                                   // accepted but not paid: still open
+    s = reducer(s, { type: 'payStart', id: 'p1', jobId: 'job', method: 'mtn', phone: '+237670123456', ref: 'R', at, ids: ids(1) });
+    expect(isChatOpen(s.jobs[0])).toBe(true);                                   // payment pending: the money is not held yet
+    s = reducer(s, { type: 'paySettle', id: 'p1', ok: true, code: '123456', at, ids: ids(4) });
+    expect(isChatOpen(s.jobs[0])).toBe(false);                                  // payment succeeded: closed
+    expect(s.chats.at(-1)).toMatchObject({ from: 'system', key: 'chat.sysClosed' });
+    const before = s.chats.length;
+    for (const from of ['customer', 'artisan'] as const) {
+      s = reducer(s, { type: 'chat', id: 'x' + from, sysId: 'y' + from, jobId: 'job', from, text: 'one more thing', at, ids: ids(2) });
+    }
+    expect(s.chats).toHaveLength(before);                                       // nothing could be sent
+    expect(checkChatMessage(s.jobs[0], 'customer', 'hello')).toEqual({ ok: false, reason: 'closed' });
+  });
+
+  it('a failed payment does not close the chat', () => {
+    let s = start();
+    s = reducer(s, { type: 'answer', jobId: 'job', accept: true, at, ids: ids(3) });
+    s = reducer(s, { type: 'payStart', id: 'p1', jobId: 'job', method: 'mtn', phone: '+237600000000', ref: 'R', at, ids: ids(1) });
+    s = reducer(s, { type: 'paySettle', id: 'p1', ok: false, code: '123456', at, ids: ids(4) });
+    expect(isChatOpen(s.jobs[0])).toBe(true);
   });
 
   it('ignores a message on a job that is closed', () => {

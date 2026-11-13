@@ -2,6 +2,7 @@ import { Badge, Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { PriceBreakdown } from '../components/PriceBreakdown';
 import { Screen } from '../components/Screen';
+import { isChatOpen } from '../domain/chat';
 import { formatLeft, offerDeadline, timeLeftMs } from '../domain/offers';
 import type { Key } from '../i18n';
 import { tradeLabel } from '../i18n/trade';
@@ -36,7 +37,7 @@ export function ArtisanInbox() {
             {j.status === 'EXPIRED' && <p><Badge icon="⌛" text={t('inbox.expired')} tone="bad" /></p>}
             {late === j.id && <div role="alert" className="error">{t('inbox.expiredNow')}</div>}
             {j.status !== 'DECLINED' && j.status !== 'EXPIRED' && <PriceBreakdown price={j.price} rate={j.commissionRate} done={j.status === 'COMPLETED'} />}
-            {(j.status === 'REQUESTED' || j.status === 'ACCEPTED') && (
+            {isChatOpen(j) && (
               <Button variant="secondary" icon="💬" label={t('chat.openArtisan')} onClick={() => actions.go('chat', { chatAs: 'artisan', jobId: j.id })} />
             )}
             {j.status === 'REQUESTED' && (

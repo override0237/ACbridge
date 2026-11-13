@@ -412,4 +412,6 @@ export const fr: Dict = {
   'audit.job_expired': "Offre à {artisan} expirée (urgence : {urgency}) : pas acceptée à temps",
   'operator.export': "Exporter",
   'operator.exportHint': "Télécharge tout le contenu de la démo (comptes, demandes, paiements, grand livre...) en fichier. Transformez-le en base de données avec : node --no-warnings database/build-demo-db.mjs acbridge-demo-data.json",
+  'chat.closedPaid': "La discussion est fermée : le paiement a été reçu. La conversation ci-dessus reste visible.",
+  'chat.sysClosed': "Paiement reçu : la discussion est maintenant fermée.",
 };

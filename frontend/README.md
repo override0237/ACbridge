@@ -162,7 +162,7 @@ computed from it and shown in the chat, in the inbox and in the operator audit l
 - A number without the currency fixes nothing and the artisan is reminded to add it. Amounts must be 500 to 5,000,000 FCFA.
 - The artisan's **YES** accepts the job at the price he stated; after it the price is locked. The customer's consent is **paying** (or withdrawing during the cooling-off period). Backend: the artisan's chat amount becomes `proposed_price` (`proposed_by = ARTISAN`) and `accept` agrees it.
 - Phone numbers (9+ digits or +CC...) are hidden as `[number hidden]` so the deal stays on the platform.
-- The chat closes when the job is declined or completed.
+- The chat closes when the job is declined, expires, or completed, and **as soon as the customer's payment succeeds** (the app then holds the money): the Connect flexibly / Chat buttons disappear for both sides, no message can be sent (the backend answers 409), and the history stays readable. A pending or failed payment does not close it.
 - Backend: `POST/GET /jobs/{id}/messages` (branch `feature/backend-chat`, rules identical to the front end). In sync mode every message is mirrored and the
   backend reads the amount itself into `proposed_price`.
 

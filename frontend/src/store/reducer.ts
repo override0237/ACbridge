@@ -291,6 +291,7 @@ export function reducer(s: State, a: Action): State {
       return {
         ...s,
         payments: s.payments.map((p) => (p.id === payment.id ? { ...p, status: 'succeeded', settledAt: a.at } : p)),
+        chats: [...s.chats, { id: `${payment.id}-closed`, jobId: job.id, from: 'system', text: '', key: 'chat.sysClosed', params: {}, at: a.at }],
         payouts: [...s.payouts, payout],
         ledger: postTx(s.ledger, `payment-succeeded:${payment.id}`, split.lines, a.at),
         // The job code (stored hashed) and the artisan's contact are unlocked only now.

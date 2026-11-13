@@ -32,7 +32,11 @@ export type ChatSender = 'customer' | 'artisan';
 export type PriceStatus = 'none' | 'bare_number' | 'applied' | 'out_of_range' | 'locked' | 'not_artisan';
 export type ChatCheck = { ok: true; amount: number | null; price: PriceStatus } | { ok: false; reason: 'empty' | 'too_long' | 'closed' };
 
-export const isChatOpen = (job: Job): boolean => job.status === 'REQUESTED' || job.status === 'ACCEPTED';
+/** A job is PAID once the customer's payment succeeded (that is when its job code is created): the app holds the money. */
+export const isJobPaid = (job: Job): boolean => job.codeHash !== null;
+
+/** The chat is open while the offer is live and until the customer's payment succeeds. After that no message can be sent. */
+export const isChatOpen = (job: Job): boolean => (job.status === 'REQUESTED' || job.status === 'ACCEPTED') && !isJobPaid(job);
 
 /** What would happen if `from` sent `text` on `job`. Used by the store before dispatching and by the reducer to re-validate. */
 export function checkChatMessage(job: Job | undefined, from: ChatSender, text: string): ChatCheck {

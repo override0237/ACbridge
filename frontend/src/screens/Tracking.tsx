@@ -2,6 +2,7 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import type { Key } from '../i18n';
+import { isChatOpen } from '../domain/chat';
 import { isPaid } from '../domain/ledger';
 import { money } from '../i18n/format';
 import { useStore } from '../store';
@@ -56,7 +57,7 @@ export function Tracking() {
         {(job.status === 'ACCEPTED' || job.status === 'COMPLETED') && (
           <Button big icon="💳" label={t('pay.open')} onClick={() => actions.go('payments')} />
         )}
-        {(job.status === 'REQUESTED' || job.status === 'ACCEPTED') && (
+        {isChatOpen(job) && (
           <Button big icon="💬" label={t('chat.open')} onClick={() => actions.go('chat', { chatAs: 'customer' })} />
         )}
         {declined && <Button big icon="🔁" label={t('tracking.again')} onClick={() => actions.go('matches')} />}

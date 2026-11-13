@@ -3,7 +3,7 @@ import { Badge, Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { PriceBreakdown } from '../components/PriceBreakdown';
 import { Screen } from '../components/Screen';
-import { MAX_BODY, MAX_PRICE, MIN_PRICE, isChatOpen, type PriceStatus } from '../domain/chat';
+import { MAX_BODY, MAX_PRICE, MIN_PRICE, isChatOpen, isJobPaid, type PriceStatus } from '../domain/chat';
 import type { Key } from '../i18n';
 import { money, renderParams } from '../i18n/format';
 import { tradeLabel } from '../i18n/trade';
@@ -90,7 +90,7 @@ export function Chat() {
           <div role="alert" className={`feedback feedback-${feedback?.tone ?? 'good'}`} hidden={!feedback}>{feedback && t(feedback.key, feedback.params)}</div>
           <Button type="submit" big icon="📤" label={t('chat.send')} />
         </form>
-      ) : <p className="notice">{t('chat.errClosed')}</p>}
+      ) : <p className="notice" role="status">{isJobPaid(job) ? t('chat.closedPaid') : t('chat.errClosed')}</p>}
 
       {as === 'artisan' && job.status === 'REQUESTED' && (
         <Card>
