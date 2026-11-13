@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@acbridge/brand": "workspace:*",
     "@acbridge/core": "workspace:*",
     "@acbridge/tokens": "workspace:*",
     "expo": "~52.0.0",

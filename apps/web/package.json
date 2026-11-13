@@ -9,14 +9,18 @@
     "preview": "vite preview",
     "test": "vitest run",
     "db:browse": "node --no-warnings database/make-browser.mjs database/acbridge.db database/browse.html \"ACbridge backend database (simulated data)\"",
-    "db:from-browser": "node --no-warnings database/build-demo-db.mjs"
+    "db:from-browser": "node --no-warnings database/build-demo-db.mjs",
+    "sync:brand": "tsx scripts/sync-brand.ts",
+    "predev": "pnpm sync:brand",
+    "prebuild": "pnpm sync:brand"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "@acbridge/core": "workspace:*",
     "@acbridge/tokens": "workspace:*",
-    "lucide-react": "^0.460.0"
+    "lucide-react": "^0.460.0",
+    "@acbridge/brand": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",
@@ -28,6 +32,7 @@
     "jsdom": "^25.0.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "tsx": "^4.19.2"
   }
 }

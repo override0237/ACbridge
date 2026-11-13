@@ -1,0 +1,70 @@
+/* ACbridge brand and page identity. Colours: ONLY tokens (var(--acb-*)). The gold comes from the logo's gradient.
+   The legacy demo screens are light-only, so .app pins the light variables (.acb-vars-light); the header is always navy. */
+
+.acb-logo { display: block; flex: none; max-width: 100%; }
+.acb-logo-letters { fill: var(--acb-color-text); }
+.acb-logo-letters-on-ink { fill: var(--acb-color-on-ink); }
+
+/* ---- header: always navy, gold hairline, gold-outlined language switch (the logo's two colours) ---- */
+.app .top {
+  background: var(--acb-color-ink); color: var(--acb-color-on-ink);
+  border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--acb-color-gold-light), var(--acb-color-gold-deep)) 1;
+}
+.app .brand { display: inline-flex; align-items: center; padding: 0 var(--acb-space-1); background: none; border: 0; cursor: pointer; min-height: var(--acb-target-min); border-radius: var(--acb-radius-button); }
+.app .brand:focus-visible, .app .lang-btn:focus-visible { outline: 3px solid var(--acb-color-gold-light); outline-offset: 2px; }
+.app .lang { border: 2px solid var(--acb-color-gold-light); }
+.app .lang-btn { color: var(--acb-color-on-ink); }
+.app .lang-btn.active { background: var(--acb-color-gold-light); color: var(--acb-color-on-gold); }
+
+/* ---- every screen: a signature motif from the logo + a gold rule under the title ---- */
+.screen-head { display: flex; align-items: center; gap: var(--acb-space-3); }
+.screen-head h1 { margin: 0; }
+.screen-head .acb-motif { flex: none; }
+.gold-rule { display: block; width: 72px; height: 4px; border-radius: var(--acb-radius-pill); background: linear-gradient(90deg, var(--acb-color-gold-light), var(--acb-color-gold-deep)); margin: var(--acb-space-1) 0 var(--acb-space-2); }
+
+/* home: the whole mark, large, as a hero */
+.screen[data-screen='home'] .screen-head { flex-direction: column; align-items: flex-start; gap: var(--acb-space-2); }
+.screen[data-screen='home'] .gold-rule { width: 120px; }
+
+/* artisan screens: the leaning post (the person who does the work) */
+.screen[data-screen^='artisan'] .screen-head .acb-motif { transform: rotate(0deg); }
+
+/* matches and profile: the best match and the verified artisan carry the gold */
+.card-highlight { border-color: var(--acb-color-gold-deep); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acb-color-gold-light) 55%, transparent); }
+.screen[data-screen='profile'] .facts dd strong { color: var(--acb-color-gold-text); }
+
+/* vouch seals: gold, like a stamp */
+.seal-chip { color: var(--acb-color-gold-text); border-color: var(--acb-color-gold-deep); }
+.seal-card { border-color: var(--acb-color-gold-deep); }
+
+/* tracking: the stepper is a bridge span: a gold baseline with a gold step for "now" */
+.screen[data-screen='tracking'] .steps { position: relative; }
+.screen[data-screen='tracking'] .steps::before {
+  content: ''; position: absolute; left: 12%; right: 12%; top: 1.45rem; height: 4px; border-radius: var(--acb-radius-pill);
+  background: linear-gradient(90deg, var(--acb-color-gold-light), var(--acb-color-gold-deep)); opacity: 0.55;
+}
+.screen[data-screen='tracking'] .step { position: relative; z-index: 1; }
+.screen[data-screen='tracking'] .step-current { border-color: var(--acb-color-gold-deep); background: color-mix(in srgb, var(--acb-color-gold-light) 35%, var(--acb-color-surface)); color: var(--acb-color-text); }
+.screen[data-screen='tracking'] .step-now { color: var(--acb-color-gold-text); }
+
+/* payments: a bridge carrying money, so the cards get a gold top edge */
+.screen[data-screen='payments'] .card { border-top: 4px solid var(--acb-color-gold-deep); }
+.screen[data-screen='payments'] .big-number { color: var(--acb-color-text); }
+
+/* chat: the final price the artisan states is the gold bubble */
+.bubble-price { color: var(--acb-color-gold-text); }
+.bubble-system { border-color: var(--acb-color-gold-deep); }
+.screen[data-screen='chat'] .bubble.mine { border-color: var(--acb-color-gold-deep); }
+
+/* rating: gold stars */
+.stars { color: var(--acb-color-gold-text); }
+.star-btn { color: var(--acb-color-gold-text); }
+.star-btn.on { background: var(--acb-color-gold-light); border-color: var(--acb-color-gold-deep); color: var(--acb-color-on-gold); }
+.star-btn.on .star-num { color: var(--acb-color-on-gold); }
+
+/* operator: ledger-style gold edge on each card heading */
+.screen[data-screen='operator'] .card h2 { border-left: 4px solid var(--acb-color-gold-deep); padding-left: var(--acb-space-2); }
+
+/* footer carries the mark */
+.foot .foot-brand { display: inline-flex; align-items: center; gap: var(--acb-space-2); }

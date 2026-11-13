@@ -48,6 +48,16 @@ const DESCRIPTIONS = {
   v_requests: 'VIEW: requests with job and artisan.',
 };
 
+// Brand: the logo and the shared design tokens (colours) are read from the monorepo so this page matches the apps.
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const readIf = (p) => (existsSync(p) ? readFileSync(p, 'utf8') : '');
+const tokensCss = readIf(join(root, 'packages', 'tokens', 'generated', 'tokens.css'));
+const wordmark = readIf(join(root, 'packages', 'brand', 'assets', 'wordmark-on-ink.svg')).replace(/ width="[0-9.]+" height="[0-9.]+"/, ' height="34"');
+const icon = readIf(join(root, 'packages', 'brand', 'assets', 'app-icon.svg'));
+
 const db = new DatabaseSync(dbPath, { readOnly: true });
 const names = db.prepare("SELECT name, type FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY type DESC, name").all();
 const LIMIT = 5000;
@@ -70,9 +80,10 @@ const json = JSON.stringify({ title, generated: new Date().toISOString(), tables
 const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title.replace(/[<&]/g, '')}</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(icon)}">
 <style>
-  :root{--bg:#f6f7f9;--ink:#14202b;--muted:#4a5a68;--line:#c9d2da;--brand:#0b5d9e}
-  @media (prefers-color-scheme: dark){:root{--bg:#10161c;--ink:#e8eef3;--muted:#9fb0bf;--line:#2c3a46;--brand:#6db3f2}}
+  ${tokensCss}
+  :root{--bg:var(--acb-color-surface);--ink:var(--acb-color-text);--muted:var(--acb-color-text-muted);--line:var(--acb-color-border);--brand:var(--acb-color-accent)}
   *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,Segoe UI,sans-serif}
   header{padding:12px 16px;border-bottom:1px solid var(--line)} h1{font-size:1.2rem;margin:0} .muted{color:var(--muted)}
   main{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 70px)} nav{border-right:1px solid var(--line);padding:8px;overflow:auto;max-height:calc(100vh - 70px)}
@@ -84,8 +95,12 @@ const html = `<!doctype html>
   table{border-collapse:collapse;width:100%;font-size:.9rem} th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;max-width:420px;overflow:hidden;text-overflow:ellipsis}
   th{position:sticky;top:0;background:var(--bg);z-index:1} td.null{color:var(--muted);font-style:italic}
   @media (max-width:760px){main{grid-template-columns:1fr} nav{max-height:none;border-right:0;border-bottom:1px solid var(--line)}}
+  header.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--acb-color-ink);color:var(--acb-color-on-ink);border-bottom:3px solid var(--acb-color-gold-deep)}
+  header.top h1{color:var(--acb-color-on-ink)} header.top #meta{color:var(--acb-color-on-ink);opacity:.8;font-size:.9rem}
+  nav button[aria-current=true]{background:var(--acb-color-ink);color:var(--acb-color-on-ink);box-shadow:inset 4px 0 0 var(--acb-color-gold-light)}
+  th{border-bottom:2px solid var(--acb-color-gold-deep)}
 </style></head><body>
-<header><h1>${title.replace(/[<&]/g, '')}</h1><div class="muted" id="meta"></div></header>
+<header class="top">${wordmark}<div><h1>${title.replace(/[<&]/g, '')}</h1><div id="meta"></div></div></header>
 <main><nav id="nav" aria-label="Tables"></nav><section><h2 id="tname"></h2><p class="muted" id="tdesc"></p>
 <div class="tools"><input id="q" type="search" placeholder="Search this table" aria-label="Search this table"><span class="muted" id="count"></span></div>
 <div class="wrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div></section></main>

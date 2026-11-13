@@ -20,9 +20,9 @@ p { margin: .35rem 0; }
 .foot { display: flex; justify-content: space-between; align-items: center; padding: .75rem 1rem; color: var(--muted); border-top: 1px solid var(--line); }
 .link { background: none; border: 0; color: var(--brand); text-decoration: underline; font: inherit; min-height: 48px; padding: 0 .5rem; cursor: pointer; }
 
-.lang { display: inline-flex; border: 2px solid #fff; border-radius: 10px; overflow: hidden; }
-.lang-btn { min-width: 52px; min-height: 48px; border: 0; background: transparent; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
-.lang-btn.active { background: #fff; color: var(--brand); }
+.lang { display: inline-flex; border-radius: 10px; overflow: hidden; }
+.lang-btn { min-width: 52px; min-height: 48px; border: 0; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
+
 
 .screen { display: flex; flex-direction: column; gap: .75rem; }
 .instruction { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }

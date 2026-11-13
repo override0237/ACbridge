@@ -42,9 +42,13 @@ ${colorVars(colors.dark, '    ')}
 ${colorVars(colors.dark, '  ')}
 }
 
-/* Scoped themes: show light and dark side by side (style guide) or force a region to one mode. */
+/* Scoped themes: show light and dark side by side (style guide) or force a region to one mode.
+   .acb-vars-light only pins the light VARIABLES (no background), for screens that are still light-only. */
+.acb-vars-light,
 .acb-theme-light {
 ${colorVars(colors.light, '  ')}
+}
+.acb-theme-light {
   background: var(--acb-color-surface);
   color: var(--acb-color-text);
 }

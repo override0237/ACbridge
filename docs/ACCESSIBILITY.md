@@ -20,6 +20,24 @@ Rules from the spec that the script enforces:
 
 | Mode | Foreground | Background | Ratio | Needs | Use | Result |
 |---|---|---|---|---|---|---|
+| light | `goldText` #8A6408 | `surface` #FFFFFF | 5.37:1 | 4.5:1 | gold text on the page | pass |
+| dark | `goldText` #F7D774 | `surface` #0F172A | 12.69:1 | 4.5:1 | gold text on the page | pass |
+| light | `goldText` #8A6408 | `surfaceRaised` #F8FAFC | 5.14:1 | 4.5:1 | gold text on cards | pass |
+| dark | `goldText` #F7D774 | `surfaceRaised` #172033 | 11.56:1 | 4.5:1 | gold text on cards | pass |
+| light | `goldDeep` #B8860B | `surface` #FFFFFF | 3.25:1 | 3:1 | gold shapes and rules against the page (non-text, 3:1) | pass |
+| dark | `goldDeep` #B8860B | `surface` #0F172A | 5.49:1 | 3:1 | gold shapes and rules against the page (non-text, 3:1) | pass |
+| light | `goldDeep` #B8860B | `surfaceRaised` #F8FAFC | 3.11:1 | 3:1 | gold shapes and rules against cards (non-text, 3:1) | pass |
+| dark | `goldDeep` #B8860B | `surfaceRaised` #172033 | 5.00:1 | 3:1 | gold shapes and rules against cards (non-text, 3:1) | pass |
+| light | `goldLight` #F7D774 | `ink` #0F172A | 12.69:1 | 3:1 | logo glyph and motifs on navy (non-text, 3:1) | pass |
+| dark | `goldLight` #F7D774 | `ink` #0F172A | 12.69:1 | 3:1 | logo glyph and motifs on navy (non-text, 3:1) | pass |
+| light | `goldDeep` #B8860B | `ink` #0F172A | 5.49:1 | 3:1 | logo glyph lower end on navy (non-text, 3:1) | pass |
+| dark | `goldDeep` #B8860B | `ink` #0F172A | 5.49:1 | 3:1 | logo glyph lower end on navy (non-text, 3:1) | pass |
+| light | `onInk` #F8FAFC | `ink` #0F172A | 17.06:1 | 4.5:1 | text and wordmark on the navy header | pass |
+| dark | `onInk` #F8FAFC | `ink` #0F172A | 17.06:1 | 4.5:1 | text and wordmark on the navy header | pass |
+| light | `onGold` #0F172A | `goldLight` #F7D774 | 12.69:1 | 4.5:1 | ink text on the light end of the gold gradient | pass |
+| dark | `onGold` #0F172A | `goldLight` #F7D774 | 12.69:1 | 4.5:1 | ink text on the light end of the gold gradient | pass |
+| light | `onGold` #0F172A | `goldDeep` #B8860B | 5.49:1 | 4.5:1 | ink text on the deep end of the gold gradient | pass |
+| dark | `onGold` #0F172A | `goldDeep` #B8860B | 5.49:1 | 4.5:1 | ink text on the deep end of the gold gradient | pass |
 | light | `text` #0F172A | `surface` #FFFFFF | 17.85:1 | 4.5:1 | body text on the page | pass |
 | dark | `text` #F8FAFC | `surface` #0F172A | 17.06:1 | 4.5:1 | body text on the page | pass |
 | light | `text` #0F172A | `surfaceRaised` #F8FAFC | 17.06:1 | 4.5:1 | body text on cards and sheets | pass |

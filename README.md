@@ -1,3 +1,5 @@
+<p align="center"><img src="packages/brand/assets/wordmark.svg" alt="ACbridge" height="56"></p>
+
 # ACbridge
 
 A local reputation and service-matching platform for informal artisans (electricians, plumbers,

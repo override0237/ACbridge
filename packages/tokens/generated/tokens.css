@@ -15,6 +15,11 @@
   --acb-color-success: #15803D;
   --acb-color-warning: #B45309;
   --acb-color-danger: #B91C1C;
+  --acb-color-gold-light: #F7D774;
+  --acb-color-gold-deep: #B8860B;
+  --acb-color-gold-text: #8A6408;
+  --acb-color-on-ink: #F8FAFC;
+  --acb-color-on-gold: #0F172A;
   --acb-space-0: 0px;
   --acb-space-1: 4px;
   --acb-space-2: 8px;
@@ -61,6 +66,11 @@
     --acb-color-success: #4ADE80;
     --acb-color-warning: #FBBF24;
     --acb-color-danger: #F87171;
+    --acb-color-gold-light: #F7D774;
+    --acb-color-gold-deep: #B8860B;
+    --acb-color-gold-text: #F7D774;
+    --acb-color-on-ink: #F8FAFC;
+    --acb-color-on-gold: #0F172A;
   }
 }
 
@@ -80,9 +90,16 @@
   --acb-color-success: #4ADE80;
   --acb-color-warning: #FBBF24;
   --acb-color-danger: #F87171;
+  --acb-color-gold-light: #F7D774;
+  --acb-color-gold-deep: #B8860B;
+  --acb-color-gold-text: #F7D774;
+  --acb-color-on-ink: #F8FAFC;
+  --acb-color-on-gold: #0F172A;
 }
 
-/* Scoped themes: show light and dark side by side (style guide) or force a region to one mode. */
+/* Scoped themes: show light and dark side by side (style guide) or force a region to one mode.
+   .acb-vars-light only pins the light VARIABLES (no background), for screens that are still light-only. */
+.acb-vars-light,
 .acb-theme-light {
   --acb-color-ink: #0F172A;
   --acb-color-text: #0F172A;
@@ -98,6 +115,13 @@
   --acb-color-success: #15803D;
   --acb-color-warning: #B45309;
   --acb-color-danger: #B91C1C;
+  --acb-color-gold-light: #F7D774;
+  --acb-color-gold-deep: #B8860B;
+  --acb-color-gold-text: #8A6408;
+  --acb-color-on-ink: #F8FAFC;
+  --acb-color-on-gold: #0F172A;
+}
+.acb-theme-light {
   background: var(--acb-color-surface);
   color: var(--acb-color-text);
 }
@@ -116,6 +140,11 @@
   --acb-color-success: #4ADE80;
   --acb-color-warning: #FBBF24;
   --acb-color-danger: #F87171;
+  --acb-color-gold-light: #F7D774;
+  --acb-color-gold-deep: #B8860B;
+  --acb-color-gold-text: #F7D774;
+  --acb-color-on-ink: #F8FAFC;
+  --acb-color-on-gold: #0F172A;
   background: var(--acb-color-surface);
   color: var(--acb-color-text);
 }

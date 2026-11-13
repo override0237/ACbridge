@@ -1,3 +1,5 @@
+<p align="center"><img src="../../packages/brand/assets/wordmark.svg" alt="ACbridge" height="56"></p>
+
 # ACbridge front end (demo)
 
 Mobile-first React 18 + TypeScript + Vite demo of the ACbridge journey: **any trade** (plumber, electrician, tailor, or whatever the customer types), **Neighbourhood A**,

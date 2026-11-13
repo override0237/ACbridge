@@ -17,6 +17,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@acbridge/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       '@acbridge/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -54,12 +57,28 @@ importers:
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
       vite:
         specifier: ^5.4.11
         version: 5.4.21
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(jsdom@25.0.1)
+
+  packages/brand:
+    dependencies:
+      '@acbridge/tokens':
+        specifier: workspace:*
+        version: link:../tokens
+    devDependencies:
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(jsdom@25.0.1)

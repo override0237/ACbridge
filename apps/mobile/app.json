@@ -5,7 +5,21 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "android": { "package": "app.acbridge.mobile" },
-    "ios": { "bundleIdentifier": "app.acbridge.mobile" }
+    "android": {
+      "package": "app.acbridge.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "../../packages/brand/assets/png/adaptive-foreground-1024.png",
+        "backgroundColor": "#0F172A"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "app.acbridge.mobile"
+    },
+    "icon": "../../packages/brand/assets/png/app-icon-1024.png",
+    "splash": {
+      "image": "../../packages/brand/assets/png/splash-1284x2778.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    }
   }
 }

@@ -26,6 +26,12 @@ export interface ColorSet {
   success: string;
   warning: string;
   danger: string;
+  /** BRAND (from the logo): the two ends of the gold gradient, a text-safe gold, light text for navy surfaces, ink for text ON gold. */
+  goldLight: string;
+  goldDeep: string;
+  goldText: string;
+  onInk: string;
+  onGold: string;
 }
 
 export const colors: Record<Mode, ColorSet> = {
@@ -44,6 +50,11 @@ export const colors: Record<Mode, ColorSet> = {
     success: '#15803D',
     warning: '#B45309',
     danger: '#B91C1C',
+    goldLight: '#F7D774',
+    goldDeep: '#B8860B',
+    goldText: '#8A6408',
+    onInk: '#F8FAFC',
+    onGold: '#0F172A',
   },
   dark: {
     ink: '#0F172A',
@@ -60,6 +71,11 @@ export const colors: Record<Mode, ColorSet> = {
     success: '#4ADE80',
     warning: '#FBBF24',
     danger: '#F87171',
+    goldLight: '#F7D774',
+    goldDeep: '#B8860B',
+    goldText: '#F7D774',
+    onInk: '#F8FAFC',
+    onGold: '#0F172A',
   },
 };
 
@@ -91,6 +107,16 @@ export const layout = { maxContentWidth: 960 } as const;
 /** Every foreground/background pair that is checked, with the contrast ratio it must reach (WCAG 2.2 AA). */
 export interface Pair { fg: keyof ColorSet; bg: keyof ColorSet; min: number; modes: Mode[]; why: string }
 export const pairs: Pair[] = [
+  // ---- brand (logo) colours
+  { fg: 'goldText', bg: 'surface', min: 4.5, modes: ['light', 'dark'], why: 'gold text on the page' },
+  { fg: 'goldText', bg: 'surfaceRaised', min: 4.5, modes: ['light', 'dark'], why: 'gold text on cards' },
+  { fg: 'goldDeep', bg: 'surface', min: 3, modes: ['light', 'dark'], why: 'gold shapes and rules against the page (non-text, 3:1)' },
+  { fg: 'goldDeep', bg: 'surfaceRaised', min: 3, modes: ['light', 'dark'], why: 'gold shapes and rules against cards (non-text, 3:1)' },
+  { fg: 'goldLight', bg: 'ink', min: 3, modes: ['light', 'dark'], why: 'logo glyph and motifs on navy (non-text, 3:1)' },
+  { fg: 'goldDeep', bg: 'ink', min: 3, modes: ['light', 'dark'], why: 'logo glyph lower end on navy (non-text, 3:1)' },
+  { fg: 'onInk', bg: 'ink', min: 4.5, modes: ['light', 'dark'], why: 'text and wordmark on the navy header' },
+  { fg: 'onGold', bg: 'goldLight', min: 4.5, modes: ['light', 'dark'], why: 'ink text on the light end of the gold gradient' },
+  { fg: 'onGold', bg: 'goldDeep', min: 4.5, modes: ['light', 'dark'], why: 'ink text on the deep end of the gold gradient' },
   { fg: 'text', bg: 'surface', min: 4.5, modes: ['light', 'dark'], why: 'body text on the page' },
   { fg: 'text', bg: 'surfaceRaised', min: 4.5, modes: ['light', 'dark'], why: 'body text on cards and sheets' },
   { fg: 'textMuted', bg: 'surface', min: 4.5, modes: ['light', 'dark'], why: 'secondary text on the page' },

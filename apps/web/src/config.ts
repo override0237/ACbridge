@@ -26,7 +26,7 @@ function readApiBase(): string | null {
     const stored = localStorage.getItem('acbridge.api');
     if (stored) return stored;
   } catch { /* storage blocked: fall through */ }
-  return import.meta.env.VITE_API_MODE === 'api' ? '/api' : null;
+  return import.meta.env?.VITE_API_MODE === 'api' ? '/api' : null;
 }
 export const API_BASE: string | null = readApiBase();
 export const API_MODE: 'local' | 'api' = API_BASE ? 'api' : 'local';

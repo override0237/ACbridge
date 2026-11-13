@@ -1,3 +1,5 @@
+<p align="center"><img src="../../packages/brand/assets/wordmark.svg" alt="ACbridge" height="56"></p>
+
 # ACbridge mobile (React Native, Expo)
 
 **Status: scaffold, NOT yet run on a device.** This machine cannot run an Android emulator or Expo, so nothing in this folder has been

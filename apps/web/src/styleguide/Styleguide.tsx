@@ -1,4 +1,5 @@
 import { ArrowRight, Check, RefreshCw, Trash2 } from 'lucide-react';
+import { Logo, Motif } from '../components/brand/Logo';
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Skeleton } from '../components/ui';
 import { colors } from '@acbridge/tokens';
 
@@ -6,6 +7,16 @@ import { colors } from '@acbridge/tokens';
 function Showcase() {
   return (
     <div className="acb-stack">
+      <Card title="Logo">
+        <Logo height={48} />
+        <div style={{ background: 'var(--acb-color-ink)', padding: 'var(--acb-space-4)', borderRadius: 'var(--acb-radius-card)' }}><Logo tone="on-ink" height={40} /></div>
+        <Logo variant="mark" height={48} />
+      </Card>
+      <Card title="Page motifs">
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          {(['mark', 'arch', 'post', 'baseline', 'span'] as const).map((k) => (<figure key={k} style={{ margin: 0, textAlign: 'center' }}><Motif kind={k} size={72} /><figcaption>{k}</figcaption></figure>))}
+        </div>
+      </Card>
       <Card title="Buttons">
         <div className="acb-stack">
           <Button icon={ArrowRight} label="Continue" big block />

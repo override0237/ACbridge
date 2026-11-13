@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import { Logo } from './components/brand/Logo';
 import { LanguageToggle } from './components/LanguageToggle';
 import { SmsLog } from './components/SmsLog';
 import { API_MODE } from './config';
@@ -53,10 +54,10 @@ function Shell() {
   const { state, actions, t, notice, clearNotice } = useStore();
   const Current = SCREENS[state.ui.screen] ?? Home;
   return (
-    <div className="app">
+    <div className="app acb-vars-light">
       <header className="top">
         <button type="button" className="brand" onClick={() => actions.go('home')} aria-label={t('common.home')}>
-          <span aria-hidden="true">🌉</span> ACbridge
+          <Logo tone="on-ink" height={36} />
         </button>
         <LanguageToggle />
       </header>
@@ -69,7 +70,7 @@ function Shell() {
         <SmsLog />
       </div>
       <footer className="foot">
-        <span>{t('footer.note')}</span>
+        <span className="foot-brand"><Logo variant="mark" height={22} /> {t('footer.note')}</span>
         <span>
           <button type="button" className="link" onClick={toggleBackend}>{API_MODE === 'api' ? t('footer.disconnect') : t('footer.connect')}</button>
           <button type="button" className="link" onClick={() => actions.go('operator')}>{t('footer.operator')}</button>

@@ -21,6 +21,7 @@ These documents explain how each part of the ACbridge web demo (`apps/web`, with
 | 13 | [Languages and speech](./13-languages-and-speech/README.md) | French/English dictionaries, `translate`, read-aloud, dictation | `packages/core/src/i18n/*`, `components/SpeakButton.tsx`, `LanguageToggle.tsx` |
 | 14 | [State, persistence and API bridge](./14-state-persistence-and-api-bridge/README.md) | Single reducer store, `localStorage`, optional backend mirroring, build | `store/reducer.ts`, `store/index.tsx`, `api/bridge.ts`, `config.ts`, `scripts/inline.mjs` |
 | 15 | [Design system and monorepo](./15-design-system-and-monorepo/README.md) | Tokens, contrast checks, UI primitives, style guide, mobile scaffold | `packages/tokens/src/*`, `components/ui/*`, `scripts/*.ts` |
+| 16 | [Logo and page identity](./16-logo-and-page-identity/README.md) | The new logo, its motifs per screen, assets and tokens | `packages/brand/*`, `components/brand/*` |
 
 Paths in the "Primary files" column are relative to `apps/web/src` unless they start with `packages/`, `scripts/` or `apps/`. The files listed for sections 01 to 11 are indicative; each section's own README has the authoritative list.
 

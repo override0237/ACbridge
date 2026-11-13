@@ -16,7 +16,12 @@ export const theme = {
       "textMuted": "#475569",
       "success": "#15803D",
       "warning": "#B45309",
-      "danger": "#B91C1C"
+      "danger": "#B91C1C",
+      "goldLight": "#F7D774",
+      "goldDeep": "#B8860B",
+      "goldText": "#8A6408",
+      "onInk": "#F8FAFC",
+      "onGold": "#0F172A"
     },
     "dark": {
       "ink": "#0F172A",
@@ -32,7 +37,12 @@ export const theme = {
       "textMuted": "#94A3B8",
       "success": "#4ADE80",
       "warning": "#FBBF24",
-      "danger": "#F87171"
+      "danger": "#F87171",
+      "goldLight": "#F7D774",
+      "goldDeep": "#B8860B",
+      "goldText": "#F7D774",
+      "onInk": "#F8FAFC",
+      "onGold": "#0F172A"
     }
   },
   "space": {
