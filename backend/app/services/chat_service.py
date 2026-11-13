@@ -13,6 +13,7 @@ Rules (enforced here, never by the client):
   * A price can be set only while the job is REQUESTED, fixed-price, and the artisan has not agreed yet.
   * The amount must be between MIN_PRICE and MAX_PRICE FCFA, written with the currency at the END of the message.
   * Phone numbers are hidden (so the deal stays on the platform where escrow, reviews and fees apply).
+  * The chat closes for good once the customer's payment has succeeded (the app holds the money); the history stays readable.
   * Messages are append-only, 1-500 characters.
 """
 import re
@@ -85,6 +86,9 @@ def send_message(db: Session, user, job_id: uuid.UUID, body: str) -> SendResult:
         raise PermissionDeniedError("Only the customer and the artisan of this job can chat")
     if job.status in CLOSED_STATUSES:
         raise ConflictError(f"The chat is closed: this job is {job.status}")
+    if job_service.job_is_paid(job):
+        # The app now holds the customer's money: the deal is made and the bargaining is over.
+        raise ConflictError("The chat is closed: the customer's payment has been received")
     text = body.strip()
     if not 1 <= len(text) <= MAX_BODY:
         raise BadRequestError(f"A message must be 1 to {MAX_BODY} characters")
